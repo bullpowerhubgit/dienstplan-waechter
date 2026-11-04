@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dienstplan-Wächter</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3240;
+    --txt:#e6edf3; --dim:#9aa7b5; --accent:#4c8dff;
+    --frei:#3a4452; --krank:#c0392b; --wunsch:#2e9e6b; --urlaub:#1e8a8a;
+    --gesetz:#e5484d; --fairness:#d9a441; --hinweis:#5b86b8; --ok:#2e9e6b; --warn:#d9a441;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:19px;margin:0;font-weight:650}
+  header .sub{color:var(--dim);font-size:13px}
+  main{padding:16px;max-width:1550px;margin:0 auto}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+  .panel h2{font-size:15px;margin:0 0 10px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .intro{background:#13203a;border:1px solid #28406e}
+  .intro p{margin:5px 0}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  input,select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:14px}
+  input::placeholder{color:#60707f}
+  input[type=color]{padding:2px;width:40px;height:34px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  label.ctl{color:var(--dim);font-size:13px;display:flex;gap:6px;align-items:center}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:center;font-size:13px}
+  .ltab td,.teamtab td{text-align:left}
+  .teamtab input{width:100%}
+  td.we{background:#11151c}
+  .grid td.cell{cursor:pointer;user-select:none;min-width:34px;height:36px;font-weight:700;color:#fff}
+  .c-FREI{background:var(--frei);color:var(--dim)} .c-KRANK{background:var(--krank)}
+  td.reqWunsch{outline:2px solid var(--wunsch);outline-offset:-2px}
+  td.reqUrlaub{outline:2px solid var(--urlaub);outline-offset:-2px}
+  .grid th:first-child,.grid td:first-child{position:sticky;left:0;z-index:2;background:var(--panel2)}
+  .tabscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--dim);font-size:12px;margin-top:10px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .chip{width:14px;height:14px;border-radius:3px;display:inline-block}
+  .ergebnis .item{border-left:4px solid var(--line);padding:7px 11px;margin:7px 0;background:var(--panel2);border-radius:0 7px 7px 0;font-size:14px}
+  .item.GESETZ{border-color:var(--gesetz)} .item.FAIRNESS{border-color:var(--fairness)} .item.HINWEIS{border-color:var(--hinweis)}
+  .badge{font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:8px}
+  .badge.GESETZ{background:var(--gesetz)} .badge.FAIRNESS{background:var(--fairness);color:#1a1200} .badge.HINWEIS{background:var(--hinweis)} .badge.SPR{background:#6b4ed9;margin-left:6px}
+  .warnbanner{background:#2b2410;border:1px solid var(--warn);color:#f0d9a0;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:13px}
+  .ok{color:var(--ok);font-weight:600}
+  .eins .gut{color:var(--ok)} .eins .nein{color:var(--dim);font-size:13px}
+  .unterdeckung{background:#2a1416;border:1px solid var(--gesetz);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .unterdeckung b{color:#ff8f93}
+  .status{color:var(--dim);font-size:13px;margin-left:auto}
+  .hint{color:var(--dim);font-size:13px;margin:4px 0 12px}
+  .mini{font-size:12px;color:var(--dim)}
+  code{background:#0a0d12;padding:1px 5px;border-radius:4px}
+  @media(max-width:760px){ main{padding:10px} .panel{padding:12px 13px} header{padding:12px} header h1{font-size:17px} header .sub{display:none} .hint{font-size:12px} th,td{padding:4px} button{padding:9px 12px} input,select{padding:8px} }
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:50;padding:16px;overflow:auto}
+  .modal.offen{display:block}
+  .modalbox{max-width:840px;margin:16px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px}
+  .modalbox h3{margin:0 0 4px;font-size:20px} .modalbox h4{margin:18px 0 6px;color:var(--accent);font-size:15px}
+  .modalbox p,.modalbox li{font-size:14px;line-height:1.5} .modalbox ul{margin:6px 0 6px 18px;padding:0}
+  .modalbox .zu{float:right;cursor:pointer;color:var(--dim);font-size:24px;line-height:1;border:1px solid var(--line);border-radius:6px;padding:0 9px}
+  .modalbox code{background:#0a0d12;padding:1px 5px;border-radius:4px}
+  .assistgrp{border-top:1px solid var(--line);padding:12px 0} .assistgrp b{display:block;margin-bottom:6px}
+  #assiststatus{margin-top:10px;color:var(--ok);font-size:13px;min-height:18px}
+  #zellMenu{display:none;position:absolute;z-index:40;background:var(--panel2);border:1px solid var(--accent);border-radius:8px;padding:4px;max-height:300px;overflow:auto;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+  #zellMenu .zmItem{padding:8px 13px;cursor:pointer;font-size:14px;border-radius:5px;white-space:nowrap;color:var(--txt)}
+  #zellMenu .zmItem:hover{background:var(--accent);color:#fff}
+  #zellMenu .zmItem.akt{outline:1px solid var(--accent);font-weight:600}
+  #druckbereich{display:none}
+  @media print{ body>header,body>main,#modal,#zellMenu{display:none !important;} #druckbereich{display:block !important;color:#000} #druckbereich table{border-collapse:collapse;width:100%} #druckbereich th,#druckbereich td{border:1px solid #333;padding:3px 5px;font-size:10px;text-align:center} #druckbereich td.nm{text-align:left;white-space:nowrap;font-weight:600} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ Dienstplan-Wächter</h1>
+  <span class="sub">lokal · kein Internet · der Mensch entscheidet</span>
+  <span class="status" id="status"></span>
+</header>
+<div class="modal" id="modal" onclick="if(event.target===this)modalSchliessen()"><div class="modalbox" id="modalbox"></div></div>
+<div id="zellMenu"></div>
+<div id="druckbereich"></div>
+
+<main>
+  <div class="panel intro">
+    <h2>So funktioniert's (zum Testen)</h2>
+    <p><b>1.</b> <b>Schichtarten</b> anlegen · <b>2.</b> <b>Team</b> eintragen (Vornamen/Kürzel) · <b>3.</b> <b>Dienstplan</b> füllen (Zelle klicken) · <b>4.</b> <b>Prüfen</b> · <b>5.</b> <b>Krankmeldung</b> testen.</p>
+    <p class="mini">🔒 Daten bleiben nur auf diesem Gerät. <b>Das Tool besetzt keine Dienste automatisch und blockiert nichts</b> — der Mensch entscheidet. (Bestätigte Einrichtungsaktionen wie der Assistent ändern Einstellungen/Vorlagen.) Ein grünes Ergebnis prüft nur die <i>aktivierten</i> Regeln. Für Tests bitte fiktive Namen.</p>
+    <p style="margin-top:8px"><button onclick="handbuch()">📖 Handbuch</button>
+    <button onclick="assistent()">🧭 Einrichtungs-Assistent</button>
+    <button onclick="beispielLaden()">▶︎ Beispiel laden (fiktiv)</button>
+    <button onclick="vorlageIHM()">🏥 Pflege-Vorlage laden (IHM-Dienste: T/N/24h …)</button></p>
+  </div>
+
+  <div class="panel">
+    <div class="row" style="gap:14px">
+      <label class="ctl">Monat <input type="month" id="monat"></label>
+      <label class="ctl">Ruhezeit-Min. (h)
+        <input type="number" id="ruhe" step="0.25" min="0" style="width:80px" list="ruheListe" title="frei einstellbar — 11 Gesetz, 10/9,25 Pflege-Tarif">
+        <datalist id="ruheListe"><option value="11">Gesetz</option><option value="10">Pflege-Tarif</option><option value="9.25">Dienstvereinbarung</option></datalist></label>
+      <button class="primary" onclick="pruefen()">🛡️ Plan prüfen</button>
+      <button onclick="sichernDatei()">⬇︎ Als Datei sichern</button>
+      <label class="ctl" style="cursor:pointer">⬆︎ Datei laden <input type="file" id="datei" accept=".json" style="display:none" onchange="ladenDatei(event)"></label>
+      <button onclick="csvExport()">📄 Plan als CSV</button>
+      <button onclick="leeren()">🗑 Alles leeren</button>
+    </div>
+    <p class="hint" style="margin-top:10px">Ruhezeit-Kürzung nur, wenn Tarif/Dienstvereinbarung (z. B. AVR Caritas) es erlaubt. Dieses Tool ist eine Hilfe, kein Rechtsgutachten.</p>
+  </div>
+
+  <div class="panel">
+    <h2>⚙️ Einstellungen — Funktionen nach Bedarf</h2>
+    <p class="hint">Jede Prüfung an-/abschalten und Grenzwerte anpassen. Abgeschaltete Prüfungen erscheinen beim Ergebnis als Warnung „unvollständig geprüft". Wird mitgespeichert &amp; mitverschickt.</p>
+    <div id="einstellungen"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Schichtarten</h2>
+    <p class="hint">Beliebig viele Dienste. „Nacht" zählt für Nachtdienst-Fairness &amp; Erholung. „Quali" = nötige Qualifikation. „Mind." = Mindestbesetzung (qualifiziert) pro Tag.</p>
+    <div class="tabscroll"><table class="ltab"><thead><tr>
+      <th style="width:140px">Name</th><th style="width:60px">Kürzel</th><th style="width:80px">Start</th>
+      <th style="width:80px">Dauer h</th><th style="width:60px">Nacht</th><th>Nötige Quali</th>
+      <th style="width:55px">Mind.</th><th style="width:60px">Farbe</th><th style="width:40px"></th>
+    </tr></thead><tbody id="saBody"></tbody></table></div>
+    <div style="margin-top:10px"><button onclick="saZeile()">+ Schichtart</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>1 · Team</h2>
+    <p class="hint">Vertrag, Qualifikationen usw. sind <b>frei eingebbar</b> (Vorschläge erscheinen, eigener Text ist möglich). Qualifikationen als Liste, z. B. <code>examiniert, Intensiv</code>. Wunschfrei/Urlaub als Tagesnummern <b>des gewählten Monats</b>, z. B. <code>8, 15</code> (werden als volle Datumswerte gespeichert).</p>
+    <datalist id="vertragListe"><option>Vollzeit</option><option>Teilzeit</option><option>Minijob</option><option>Geteilt</option></datalist>
+    <div class="tabscroll"><table class="teamtab"><thead><tr>
+      <th style="width:130px">Name</th><th style="width:110px">Vertrag</th><th style="width:80px">Soll-h</th>
+      <th style="width:60px">Springer</th><th>Qualifikationen</th><th style="width:95px">Wunschfrei</th><th style="width:95px">Urlaub</th><th style="width:40px"></th>
+    </tr></thead><tbody id="teamBody"></tbody></table></div>
+    <div style="margin-top:10px"><button onclick="teamZeile()">+ Mitarbeiter</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Dienstplan</h2>
+    <p class="hint">In eine Zelle klicken → <b>beliebige Schicht direkt auswählen</b> (alle Schichtarten, Frei, Krank, leer). Alles manuell änderbar.</p>
+    <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
+    <div class="legend" id="legend"></div>
+    <div class="row" style="margin-top:12px">
+      <button onclick="druckDienstplan()">🖨️ Dienstplan drucken</button>
+      <button onclick="teileDienstplan()">📤 An Mitarbeiter senden / teilen</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Prüf-Ergebnis</h2>
+    <div class="ergebnis" id="ergebnis"><span class="mini">Noch nicht geprüft.</span></div>
+  </div>
+
+  <div class="panel">
+    <h2>4 · Krankmeldung — wer kann einspringen?</h2>
+    <div class="row">
+      <label class="ctl">Tag <input type="number" id="einsTag" min="1" max="31" style="width:70px"></label>
+      <label class="ctl">Schicht <select id="einsArt"></select></label>
+      <button class="primary" onclick="einspringen()">🔍 Geeignete Vertretung suchen</button>
+    </div>
+    <div class="eins" id="einsErg" style="margin-top:12px"></div>
+  </div>
+
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-G</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+</main>
+
+<script>
+/* =======================================================================
+   Dienstplan-Wächter v3 — komplette Prüf-Engine im Browser, kein Server.
+   v3-Korrekturen (nach unabhängigem Review):
+   - Feste Mitarbeiter-ID (Name nur noch Anzeige) -> Namensgleichheit/Umbenennen sicher.
+   - Wunschfrei/Urlaub als volle ISO-Datumswerte -> kein Verrutschen beim Monatswechsel.
+   - Ehrliche Ergebnis-Texte + Banner "unvollständig geprüft" bei abgeschalteten Regeln.
+   - Mindestbesetzung zählt nur QUALIFIZIERTE Personen. Fairness-Basis transparent.
+   - Eingabe-Validierung der Grenzwerte (keine negativen/leeren Werte).
+   ======================================================================= */
+const SPEICHER = "dienstplan-waechter-v3";
+const FEST = {FREI:{name:"Frei",kuerzel:"–"}, KRANK:{name:"Krank",kuerzel:"K"}};
+const ABWESEND = new Set(["FREI","KRANK"]);
+const V_NAME = {VOLLZEIT:"Vollzeit",TEILZEIT:"Teilzeit",MINIJOB:"Minijob",GETEILT:"Geteilt"};
+function uid(){ try{ return crypto.randomUUID(); }catch(e){ return 'id'+Date.now()+Math.random().toString(16).slice(2); } }
+
+function standardSchichtarten(){ return [
+  {id:"F", name:"Früh", kuerzel:"F", start:"06:00", dauer:8, nacht:false, qual:"", farbe:"#2d6cdf", minBesetzung:0},
+  {id:"S", name:"Spät", kuerzel:"S", start:"14:00", dauer:8, nacht:false, qual:"", farbe:"#c77d2a", minBesetzung:0},
+  {id:"N", name:"Nacht",kuerzel:"N", start:"22:00", dauer:8, nacht:true,  qual:"", farbe:"#7a4ed9", minBesetzung:0},
+];}
+function stdEinstellungen(){ return {
+  qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
+  dienstdauer:{an:true,maxH:10}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
+  folge:{an:false,maxFolge:6}, mindestbesetzung:{an:false}
+};}
+function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[]}; }
+let state = {monat:[2026,11], min_ruhe_h:11, schichtarten:standardSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}};
+
+/* ---------- Helfer ---------- */
+function def(id){ return state.schichtarten.find(s=>s.id===id); }
+function istArbeit(id){ const d=def(id); return !!d && d.arbeit!==false; }
+function istNacht(id){ const d=def(id); return !!(d&&d.nacht); }
+function dauer(id){ const d=def(id); return d?+d.dauer||0:0; }
+function nm(id){ const d=def(id); return d?d.name:(FEST[id]?FEST[id].name:id); }
+function kuerzel(id){ const d=def(id); return d?(d.kuerzel||d.name[0]):(FEST[id]?FEST[id].kuerzel:""); }
+function quals(m){ return (m.qualifikationen||[]).map(q=>q.toLowerCase()); }
+function istMinijob(m){ return /minijob/i.test(m.vertrag||''); }   // erkennt „Minijob" in frei eingegebenem Vertragstext
+function esc(x){ return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function tageImMonat(j,m){ return new Date(j, m, 0).getDate(); }
+function istWE(j,m,d){ const t=new Date(j,m-1,d).getDay(); return t===0||t===6; }
+function iso(j,m,d){ return `${j}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function teile(s){ return s.split('-').map(Number); }
+function hhmm(s){ const p=(s||"0:0").split(':').map(Number); return [p[0]||0, p[1]||0]; }
+function sStart(isoStr,id){ const [y,m,d]=teile(isoStr); const [h,mi]=hhmm(def(id).start); return new Date(y,m-1,d,h,mi); }
+function sEnde(isoStr,id){ const d=sStart(isoStr,id); d.setMinutes(d.getMinutes()+dauer(id)*60); return d; }
+function stundenZwischen(a,b){ return (b-a)/3600000; }
+function istFolgetag(a,b){ const [y,m,d]=teile(a); const n=new Date(y,m-1,d+1); return iso(n.getFullYear(),n.getMonth()+1,n.getDate())===b; }
+function tageDiff(a,b){ const [ya,ma,da]=teile(a),[yb,mb,db]=teile(b); return Math.round((Date.UTC(yb,mb-1,db)-Date.UTC(ya,ma-1,da))/86400000); }
+
+function dienste(id){ const p=state.plan[id]||{}; return Object.keys(p).filter(k=>p[k]).sort().map(k=>[k,p[k]]); }
+function istStunden(id){ return dienste(id).filter(([,a])=>istArbeit(a)).reduce((s,[,a])=>s+dauer(a),0); }
+function naechteVon(id){ return dienste(id).filter(([,a])=>istNacht(a)).length; }
+function imMonat(isoStr){ const [y,m]=teile(isoStr); return y===state.monat[0] && m===state.monat[1]; }
+function istStundenMonat(id){ return dienste(id).filter(([t,a])=>istArbeit(a)&&imMonat(t)).reduce((s,[,a])=>s+dauer(a),0); }
+function naechteMonat(id){ return dienste(id).filter(([t,a])=>istNacht(a)&&imMonat(t)).length; }
+
+/* ---------- Regeln (iterieren über team mit fester ID; Name nur Anzeige) ---------- */
+function pruefeRuhezeit(min_ruhe){
+  const out=[];
+  for(const m of state.team){
+    const arbeit=dienste(m.id).filter(([,a])=>istArbeit(a));
+    for(let i=0;i<arbeit.length-1;i++){
+      const [t1,a1]=arbeit[i], [t2,a2]=arbeit[i+1];
+      const ruhe=stundenZwischen(sEnde(t1,a1), sStart(t2,a2));
+      if(ruhe<min_ruhe){ const [,mm,dd]=teile(t1);
+        out.push({schwere:"GESETZ",mitarbeiter:m.name,tag:t2,text:`nur ${ruhe.toFixed(1)} h Ruhe nach ${nm(a1)} (${String(dd).padStart(2,'0')}.${String(mm).padStart(2,'0')}.) vor ${nm(a2)} — Minimum ${min_ruhe} h (§ 5 ArbZG).`}); }
+    }
+  }
+  return out;
+}
+function pruefeRuhetageNachNacht(minFrei){
+  const out=[];
+  for(const m of state.team){
+    const p=state.plan[m.id]||{}; const d=dienste(m.id); let i=0;
+    while(i<d.length){
+      if(istNacht(d[i][1])){
+        let j=i; while(j+1<d.length && istNacht(d[j+1][1]) && istFolgetag(d[j][0],d[j+1][0])) j++;
+        const letzteNacht=d[j][0], nachtArt=d[j][1];
+        const ende=sEnde(letzteNacht,nachtArt); const endIso=iso(ende.getFullYear(),ende.getMonth()+1,ende.getDate());
+        // zuerst den nächsten TATSÄCHLICHEN Arbeitseinsatz nach dem Nachtblock finden
+        let next=null; for(let k=j+1;k<d.length;k++){ if(istArbeit(d[k][1])){ next=d[k]; break; } }
+        if(next){
+          const frei=Math.max(0, tageDiff(endIso, next[0]) - 1);  // volle freie Kalendertage zwischen Dienstende und nächstem Dienst
+          if(frei<minFrei) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:letzteNacht,text:`nur ${frei} freie(r) Tag(e) zwischen Nacht-Ende (${endIso.split('-').reverse().join('.')}) und ${nm(next[1])} am ${next[0].split('-').reverse().join('.')} (empfohlen: ${minFrei}).`});
+        }
+        i=j+1;
+      } else i++;
+    }
+  }
+  return out;
+}
+function pruefeWunschUrlaub(wfAn){
+  const out=[];
+  for(const m of state.team){
+    const wunsch=new Set(m.wunschfrei||[]), url=new Set(m.urlaub||[]);
+    for(const [tag,art] of dienste(m.id)){
+      if(wfAn && istArbeit(art) && wunsch.has(tag)) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag,text:`als ${nm(art)} eingeplant, obwohl WUNSCHFREI.`});
+      if(istArbeit(art) && url.has(tag)) out.push({schwere:"GESETZ",mitarbeiter:m.name,tag,text:`als ${nm(art)} eingeplant, obwohl URLAUB.`});
+    }
+  }
+  return out;
+}
+function pruefeQualifikation(){
+  const out=[];
+  for(const m of state.team) for(const [tag,art] of dienste(m.id)){
+    const d=def(art); if(!d||!d.qual) continue;
+    if(!quals(m).includes(d.qual.toLowerCase())) out.push({schwere:"GESETZ",mitarbeiter:m.name,tag,text:`${nm(art)} erfordert Qualifikation „${d.qual}" — fehlt.`});
+  }
+  return out;
+}
+function pruefeStunden(tol){
+  const out=[];
+  for(const m of state.team){ if(!m.name) continue;
+    const ist=istStundenMonat(m.id), soll=+m.soll_stunden||0, diff=ist-soll;
+    if(istMinijob(m) && ist>soll) out.push({schwere:"GESETZ",mitarbeiter:m.name,tag:null,text:`Minijob: ${ist} h im Monat geplant, Stunden-Deckel ${soll} h — ${diff>0?'+':''}${diff} h (Verdienstgrenze gegen echten Lohn prüfen).`});
+    else if(Math.abs(diff)>tol) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:null,text:`${ist} h im Monat geplant vs. Soll ${soll} h (${diff>0?'+':''}${diff} h).`});
+  }
+  return out;
+}
+function pruefeNachtFairness(maxAbstand){
+  const aktive=[];
+  for(const m of state.team){ if(!m.name) continue;
+    if(dienste(m.id).some(([t,a])=>istArbeit(a)&&imMonat(t))) aktive.push({name:m.name, n:naechteMonat(m.id)}); }
+  if(!aktive.length) return [];
+  const w=aktive.map(a=>a.n), hoch=Math.max(...w), tief=Math.min(...w);
+  if(hoch-tief>maxAbstand){
+    const viele=aktive.filter(a=>a.n===hoch).map(a=>a.name), wenige=aktive.filter(a=>a.n===tief).map(a=>a.name);
+    return [{schwere:"FAIRNESS",mitarbeiter:viele.join(", "),tag:null,
+      text:`${hoch} Nachtdienste vs. ${tief} bei ${wenige.join(", ")} (Abstand ${hoch-tief}, max. ${maxAbstand}). Basis: Anzahl Nachtdienste im Monat über ${aktive.length} aktive Personen — einfaches Zählmaß, ohne Stunden/Beschäftigungsumfang.`}];
+  }
+  return [];
+}
+function pruefeDienstdauer(maxH){
+  const out=[];
+  for(const m of state.team) for(const [tag,art] of dienste(m.id))
+    if(istArbeit(art) && dauer(art)>maxH) out.push({schwere:"GESETZ",mitarbeiter:m.name,tag,text:`${nm(art)} dauert ${dauer(art)} h — über ${maxH} h Höchstarbeitszeit (§ 3 ArbZG, nur mit Ausgleich zulässig).`});
+  return out;
+}
+function pruefeDiensteInFolge(maxFolge){
+  const out=[];
+  for(const m of state.team){
+    const tage=dienste(m.id).filter(([,a])=>istArbeit(a)).map(([t])=>t); let i=0;
+    while(i<tage.length){
+      let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
+      const len=j-i+1;
+      if(len>maxFolge) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:tage[i],text:`${len} Dienste am Stück (${tage[i].split('-').reverse().join('.')}–${tage[j].split('-').reverse().join('.')}) — über empfohlene ${maxFolge} in Folge.`});
+      i=j+1;
+    }
+  }
+  return out;
+}
+function pruefeMindestbesetzung(){
+  const out=[]; const [j,m]=state.monat, tage=tageImMonat(j,m);
+  for(const s of state.schichtarten){
+    const min=+s.minBesetzung||0; if(min<=0) continue;
+    const brauchtQual = s.qual ? s.qual.toLowerCase() : null;
+    for(let d=1; d<=tage; d++){
+      const is=iso(j,m,d); let anz=0;
+      for(const ma of state.team){ if((state.plan[ma.id]||{})[is]===s.id && (!brauchtQual || quals(ma).includes(brauchtQual))) anz++; }
+      if(anz<min) out.push({schwere:"HINWEIS",mitarbeiter:s.name,tag:is,text:`Unterbesetzung ${s.name}${brauchtQual?' (qualifiziert)':''}: ${anz}/${min} besetzt.`});
+    }
+  }
+  return out;
+}
+function deaktivierteKern(){
+  const e=state.einstellungen, map={qualifikation:'Qualifikation',wunschfrei:'Wunschfrei',ruhetage:'Ruhetage nach Nacht',dienstdauer:'Max. Dienstdauer',nachtfair:'Nacht-Fairness',stunden:'Soll-Stunden'};
+  return Object.keys(map).filter(k=>!e[k].an).map(k=>map[k]);
+}
+function pruefeAlles(){
+  const e=state.einstellungen||stdEinstellungen(), r=state.min_ruhe_h;
+  let v=[...pruefeWunschUrlaub(e.wunschfrei.an), ...pruefeRuhezeit(r)];
+  if(e.qualifikation.an) v.push(...pruefeQualifikation());
+  if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
+  if(e.stunden.an) v.push(...pruefeStunden(e.stunden.toleranz));
+  if(e.nachtfair.an) v.push(...pruefeNachtFairness(e.nachtfair.maxAbstand));
+  if(e.dienstdauer.an) v.push(...pruefeDienstdauer(e.dienstdauer.maxH));
+  if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
+  if(e.mindestbesetzung.an) v.push(...pruefeMindestbesetzung());
+  const o={GESETZ:0,FAIRNESS:1,HINWEIS:2};
+  v.sort((a,b)=> o[a.schwere]-o[b.schwere] || (a.tag||"9999").localeCompare(b.tag||"9999"));
+  return v;
+}
+
+/* ---------- Einspringen (erklärbar + ehrliches Ausfallmanagement) ---------- */
+function ueberschneidet(isoA,artA,isoB,artB){ const aS=sStart(isoA,artA),aE=sEnde(isoA,artA),bS=sStart(isoB,artB),bE=sEnde(isoB,artB); return aS<bE && bS<aE; }
+// Vertretung probeweise eintragen und DIESELBEN aktivierten GESETZ-Prüfungen laufen lassen wie die Planprüfung
+function probeKonflikte(m, tag, art){
+  const e=state.einstellungen, r=state.min_ruhe_h;
+  const origPlan = state.plan[m.id], origTeam = state.team;
+  let gesetz=[], warn=[];
+  try{
+    state.team=[m];
+    const run=()=>{ let v=[...pruefeRuhezeit(r)];
+      if(e.dienstdauer.an) v.push(...pruefeDienstdauer(e.dienstdauer.maxH));
+      if(e.stunden.an) v.push(...pruefeStunden(e.stunden.toleranz));
+      if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
+      if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
+      return v; };
+    const vorher=run();                                   // bestehende Konflikte OHNE die Vertretung
+    state.plan[m.id]=Object.assign({}, origPlan||{}, {[tag]:art});
+    const nachher=run();                                  // mit der Vertretung
+    let overlap=[]; for(const [t2,a2] of dienste(m.id)){ if(t2===tag) continue; if(istArbeit(a2) && ueberschneidet(tag,art,t2,a2)) overlap.push(`überschneidet sich mit ${nm(a2)} (${t2.split('-').reverse().join('.')}).`); }
+    const schluessel=x=>x.schwere+'|'+(x.tag||'')+'|'+x.text;      // Datum mit in den Schlüssel
+    const vs=new Set(vorher.map(schluessel));
+    const neu=nachher.filter(x=> !vs.has(schluessel(x)));          // NUR neu verursachte
+    gesetz=[...new Set([...neu.filter(x=>x.schwere==='GESETZ').map(x=>x.text), ...overlap])];
+    warn=[...new Set(neu.filter(x=>x.schwere==='HINWEIS').map(x=>x.text))];
+  } finally {
+    state.team=origTeam;
+    if(origPlan===undefined) delete state.plan[m.id]; else state.plan[m.id]=origPlan;
+  }
+  return { konflikte:gesetz, warnungen:warn };
+}
+function werKannEinspringen(tag, art){
+  const d=def(art); const geeignet=[], abgelehnt=[];
+  for(const m of state.team){
+    if(!m.name) continue;
+    const heute=(state.plan[m.id]||{})[tag];
+    if(istArbeit(heute)){ abgelehnt.push(`⛔ ${m.name}: arbeitet an dem Tag schon (${nm(heute)}).`); continue; }
+    if(heute==="KRANK"){ abgelehnt.push(`⛔ ${m.name}: krank gemeldet.`); continue; }
+    if((m.urlaub||[]).includes(tag)){ abgelehnt.push(`⛔ ${m.name}: Urlaub.`); continue; }
+    if((m.wunschfrei||[]).includes(tag)){ abgelehnt.push(`⛔ ${m.name}: hat an dem Tag Wunschfrei.`); continue; }
+    if(d.qual && !quals(m).includes(d.qual.toLowerCase())){ abgelehnt.push(`⛔ ${m.name}: Qualifikation „${d.qual}" fehlt.`); continue; }
+    const res = probeKonflikte(m, tag, art);
+    if(res.konflikte.length){ abgelehnt.push(`⛔ ${m.name}: ${res.konflikte.join('; ')}`); continue; }
+    const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id);
+    geeignet.push({name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen:res.warnungen||[]});
+  }
+  geeignet.sort((a,b)=> (b.springer-a.springer) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
+  return {geeignet,abgelehnt};
+}
+
+/* ---------- UI ---------- */
+function setStatus(t){ document.getElementById("status").textContent=t; }
+function speichernLokal(){ try{ localStorage.setItem(SPEICHER, JSON.stringify(state)); setStatus("✅ gespeichert"); }catch(e){ setStatus("⚠️ Speichern fehlgeschlagen — Daten nur im Arbeitsspeicher. Bitte per Datei sichern."); } markStale(); }
+function clamp(v,min){ v=parseFloat(v); if(!isFinite(v)||v<min) return min; return v; }
+function valNum(el,min,aktuell){ const v=parseFloat(el.value); if(!isFinite(v)||v<min){ el.value=aktuell; setStatus(`⚠️ Ungültiger Wert ignoriert (min. ${min}) — letzter gültiger Wert behalten.`); return null; } return v; }
+
+let letzteGeprueft=false;
+function markStale(){ const box=document.getElementById('ergebnis'); if(letzteGeprueft && box){ box.innerHTML='<span class="mini">⟳ Plan/Einstellungen geändert — bitte erneut „Plan prüfen".</span>'; letzteGeprueft=false; } }
+// Datenstand vereinheitlichen (Defaults/IDs/Migration) — liest NICHT aus localStorage
+function normalisieren(s){
+  s = s || state;
+  let jy=Array.isArray(s.monat)?s.monat[0]:null, jm=Array.isArray(s.monat)?s.monat[1]:null;
+  if(!Number.isInteger(jy) || !Number.isInteger(jm) || jm<1 || jm>12){ const h=new Date(); s.monat=[h.getFullYear(),h.getMonth()+1]; }
+  const mr=+s.min_ruhe_h; s.min_ruhe_h = (Number.isFinite(mr) && mr>=0) ? mr : 11;
+  s.schichtarten = (Array.isArray(s.schichtarten) && s.schichtarten.length) ? s.schichtarten : standardSchichtarten();
+  s.schichtarten.forEach(x=>{ if(x.minBesetzung==null) x.minBesetzung=0; if(!x.id) x.id=uid(); });  // NUR fehlende IDs ergänzen, Duplikate NICHT stillschweigend umbenennen
+  // Einstellungen tief zusammenführen, damit unvollständige Unterobjekte keine Standardfelder verdrängen
+  const de=stdEinstellungen(), se=(s.einstellungen && typeof s.einstellungen==='object')?s.einstellungen:{};
+  for(const k in de){ de[k]=Object.assign({}, de[k], (se[k] && typeof se[k]==='object')?se[k]:{}); }
+  s.einstellungen=de;
+  const vMap={VOLLZEIT:'Vollzeit',TEILZEIT:'Teilzeit',MINIJOB:'Minijob',GETEILT:'Geteilt'};
+  s.team = (Array.isArray(s.team)?s.team:[]).map(m=>{ const id=m.id||uid();
+    return {id, name:m.name||"", vertrag:(vMap[m.vertrag]||m.vertrag||"Vollzeit"), soll_stunden:+m.soll_stunden||0, springer:!!m.springer, qualifikationen:Array.isArray(m.qualifikationen)?m.qualifikationen:[], wunschfrei:Array.isArray(m.wunschfrei)?m.wunschfrei:[], urlaub:Array.isArray(m.urlaub)?m.urlaub:[]}; });
+  s.plan = (s.plan && typeof s.plan==='object') ? s.plan : {};
+  if(s.team.length===0) s.team.push(neuerMitarbeiter());
+  return s;
+}
+// Planeinträge entfernen, die auf nicht (mehr) vorhandene Schichtarten zeigen (FREI/KRANK bleiben)
+function bereinigePlan(t){ t=t||state; let weg=0; for(const pid in t.plan){ for(const k of Object.keys(t.plan[pid])){ const c=t.plan[pid][k]; if(c && !t.schichtarten.find(x=>x.id===c) && !FEST[c]){ delete t.plan[pid][k]; weg++; } } } return weg; }
+// Doppelte IDs im Import erkennen (mehrdeutige Zuordnung lässt sich nicht automatisch reparieren)
+function doppelteIds(o){
+  const erst=(arr)=>{ const s=new Set(); for(const x of (Array.isArray(arr)?arr:[])){ if(x && x.id){ if(s.has(x.id)) return x.id; s.add(x.id); } } return null; };
+  const t=erst(o&&o.team); if(t) return 'Mitarbeiter-ID „'+t+'"';
+  const sa=erst(o&&o.schichtarten); if(sa) return 'Schicht-ID „'+sa+'"';
+  return null;
+}
+// Oberfläche aus dem aktuellen state aufbauen
+function aufbauen(){
+  document.getElementById("monat").value=state.monat[0]+"-"+String(state.monat[1]).padStart(2,"0");
+  document.getElementById("ruhe").value=String(state.min_ruhe_h||11);
+  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderEinsArt(); renderGrid(); renderLegend();
+  letzteGeprueft=false;
+}
+// nur beim Programmstart: Browserstand lesen
+function init(){
+  try{ const s=localStorage.getItem(SPEICHER); if(s) state=JSON.parse(s); }catch(e){}
+  normalisieren(); aufbauen();
+  setStatus(state.team.some(t=>t.name)?"geladen":"neu — bitte eintragen");
+}
+document.getElementById("monat").addEventListener("change", e=>{ state.monat=e.target.value.split("-").map(Number); renderTeam(); renderGrid(); speichernLokal(); });
+document.getElementById("ruhe").addEventListener("change", e=>{ const v=valNum(e.target,0,state.min_ruhe_h); if(v==null)return; state.min_ruhe_h=v; speichernLokal(); });
+
+/* Schichtarten */
+function saZeile(){ const n=state.schichtarten.length+1; state.schichtarten.push({id:uid(), name:"Dienst "+n, kuerzel:"D", start:"08:00", dauer:8, nacht:false, qual:"", farbe:"#4c8dff", minBesetzung:0}); renderSchichtarten(); renderEinsArt(); renderGrid(); renderLegend(); speichernLokal(); }
+function saLoeschen(i){ const id=state.schichtarten[i].id; if(!confirm('Schichtart löschen? Zugehörige Planeinträge werden ebenfalls entfernt.')) return; state.schichtarten.splice(i,1); for(const pid in state.plan){ for(const k of Object.keys(state.plan[pid])){ if(state.plan[pid][k]===id) delete state.plan[pid][k]; } } renderSchichtarten(); renderEinsArt(); renderGrid(); renderLegend(); speichernLokal(); }
+function renderSchichtarten(){
+  const tb=document.getElementById("saBody"); tb.innerHTML="";
+  state.schichtarten.forEach((s,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input value="${esc(s.name)}" style="width:100%"></td>
+      <td><input value="${esc(s.kuerzel)}" style="width:50px" maxlength="3"></td>
+      <td><input value="${esc(s.start||'08:00')}" style="width:70px" placeholder="HH:MM"></td>
+      <td><input type="number" value="${s.dauer||8}" style="width:60px" step="0.5" min="0.5"></td>
+      <td style="text-align:center"><input type="checkbox" ${s.nacht?"checked":""}></td>
+      <td><input value="${esc(s.qual||'')}" placeholder="z. B. examiniert" style="width:100%"></td>
+      <td><input type="number" value="${s.minBesetzung||0}" min="0" style="width:48px"></td>
+      <td><input type="color" value="${s.farbe||'#4c8dff'}"></td>
+      <td><button onclick="saLoeschen(${i})">✕</button></td>`;
+    const [nm_,ku,st,da,na,qu,mb,fa]=tr.querySelectorAll("input");
+    nm_.oninput=e=>{s.name=e.target.value; renderEinsArt(); renderLegend(); speichernLokal();};
+    ku.oninput=e=>{s.kuerzel=e.target.value; renderGrid(); renderLegend(); speichernLokal();};
+    st.onchange=e=>{ if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(e.target.value)){ e.target.value=s.start; setStatus("⚠️ Ungültige Uhrzeit (Format HH:MM) — alter Wert behalten."); return; } s.start=e.target.value; speichernLokal(); };
+    da.onchange=e=>{ const v=valNum(e.target,0.5,s.dauer); if(v==null)return; s.dauer=v; speichernLokal();};
+    na.onchange=e=>{s.nacht=e.target.checked; speichernLokal();};
+    qu.oninput=e=>{s.qual=e.target.value.trim(); speichernLokal();};
+    mb.onchange=e=>{ const v=valNum(e.target,0,s.minBesetzung); if(v==null)return; s.minBesetzung=v; speichernLokal();};
+    fa.oninput=e=>{s.farbe=e.target.value; renderGrid(); renderLegend(); speichernLokal();};
+    tb.appendChild(tr);
+  });
+}
+
+/* Einstellungen (mit Werte-Validierung) */
+function estTog(k,label){ const a=state.einstellungen[k].an; return `<label class="ctl" style="flex:1;min-width:200px"><input type="checkbox" data-tog="${k}" ${a?'checked':''} style="width:auto"> ${label}</label>`; }
+function estNum(k,f,label,min){ const val=state.einstellungen[k][f]; return `<label class="ctl">${label} <input type="number" data-num="${k}.${f}" data-min="${min}" value="${val}" style="width:70px" step="0.5" min="${min}"></label>`; }
+function renderEinstellungen(){
+  const box=document.getElementById("einstellungen"); const e=state.einstellungen;
+  const rows=[
+    estTog('qualifikation','Qualifikation beim Einspringen prüfen'),
+    estTog('wunschfrei','Wunschfrei-Verletzung melden'),
+    estTog('ruhetage','Ruhetage nach Nacht')+estNum('ruhetage','minFrei','min. freie Tage',0),
+    estTog('dienstdauer','Max. Dienstdauer (Gesetz)')+estNum('dienstdauer','maxH','Stunden',1),
+    estTog('nachtfair','Nacht-Fairness (Zuschläge)')+estNum('nachtfair','maxAbstand','max. Abstand',0),
+    estTog('stunden','Soll-Stunden-Abgleich')+estNum('stunden','toleranz','Toleranz h',0),
+    estTog('folge','Max. Dienste in Folge')+estNum('folge','maxFolge','max. Tage',1),
+    estTog('mindestbesetzung','Mindestbesetzung je Schichtart (qualifiziert; oben „Mind." setzen)'),
+  ];
+  box.innerHTML=rows.map(r=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)">${r}</div>`).join("");
+  box.querySelectorAll('[data-tog]').forEach(c=>c.onchange=ev=>{ e[ev.target.dataset.tog].an=ev.target.checked; speichernLokal(); });
+  box.querySelectorAll('[data-num]').forEach(inp=>inp.onchange=ev=>{ const [k,f]=ev.target.dataset.num.split('.'); const min=+ev.target.dataset.min; const v=valNum(ev.target,min,e[k][f]); if(v==null)return; e[k][f]=v; speichernLokal(); });
+}
+
+/* Team — Wunschfrei/Urlaub als volle ISO-Daten, Eingabe als Tage des Monats */
+function tageImFeld(m,feld){ const [j,mo]=state.monat; const pre=`${j}-${String(mo).padStart(2,'0')}-`; return (m[feld]||[]).filter(d=>d.startsWith(pre)).map(d=>parseInt(d.slice(8),10)).sort((a,b)=>a-b).join(', '); }
+function setTageImFeld(m,feld,text){ const [j,mo]=state.monat; const pre=`${j}-${String(mo).padStart(2,'0')}-`; const tageMax=tageImMonat(j,mo);
+  const andere=(m[feld]||[]).filter(d=>!d.startsWith(pre));
+  const neu=text.split(',').map(x=>parseInt(x.trim(),10)).filter(n=>n>=1&&n<=tageMax).map(n=>pre+String(n).padStart(2,'0'));
+  m[feld]=[...andere, ...new Set(neu)];
+}
+function teamZeile(){ state.team.push(neuerMitarbeiter()); renderTeam(); renderGrid(); }
+function teamLoeschen(id){ state.team=state.team.filter(m=>m.id!==id); delete state.plan[id]; renderTeam(); renderGrid(); speichernLokal(); }
+function liste(s){ return s.split(',').map(x=>x.trim()).filter(Boolean); }
+function renderTeam(){
+  const tb=document.getElementById("teamBody"); tb.innerHTML="";
+  state.team.forEach(m=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><input value="${esc(m.name)}" placeholder="Name"></td>
+      <td><input list="vertragListe" value="${esc(m.vertrag||'')}" placeholder="Vollzeit/Teilzeit/Minijob …"></td>
+      <td><input type="number" value="${m.soll_stunden||0}" min="0"></td>
+      <td style="text-align:center"><input type="checkbox" ${m.springer?"checked":""}></td>
+      <td><input value="${esc((m.qualifikationen||[]).join(', '))}" placeholder="examiniert, Intensiv"></td>
+      <td><input value="${esc(tageImFeld(m,'wunschfrei'))}" placeholder="8, 15"></td>
+      <td><input value="${esc(tageImFeld(m,'urlaub'))}" placeholder="5, 6"></td>
+      <td><button onclick="teamLoeschen('${m.id}')">✕</button></td>`;
+    const [nmI,ver,soll,spr,qu,wf,ur]=tr.querySelectorAll("input,select");
+    nmI.oninput=e=>{ m.name=e.target.value; renderGrid(); speichernLokal(); };
+    ver.onchange=e=>{ m.vertrag=e.target.value; speichernLokal(); };
+    soll.onchange=e=>{ const v=valNum(e.target,0,m.soll_stunden); if(v==null)return; m.soll_stunden=v; speichernLokal(); };
+    spr.onchange=e=>{ m.springer=e.target.checked; renderGridNamen(); speichernLokal(); };
+    qu.oninput=e=>{ m.qualifikationen=liste(e.target.value); speichernLokal(); };
+    wf.oninput=e=>{ setTageImFeld(m,'wunschfrei',e.target.value); renderGrid(); speichernLokal(); };
+    ur.oninput=e=>{ setTageImFeld(m,'urlaub',e.target.value); renderGrid(); speichernLokal(); };
+    tb.appendChild(tr);
+  });
+}
+
+/* Grid */
+function zyklus(){ return ["", ...state.schichtarten.map(s=>s.id), "FREI", "KRANK"]; }
+function zellFarbe(id){ const d=def(id); if(d) return d.farbe; if(id==="FREI") return "var(--frei)"; if(id==="KRANK") return "var(--krank)"; return ""; }
+function renderEinsArt(){ document.getElementById("einsArt").innerHTML=state.schichtarten.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(""); }
+function renderLegend(){
+  const l=document.getElementById("legend");
+  let h=state.schichtarten.map(s=>`<span><i class="chip" style="background:${s.farbe}"></i>${esc(s.name)}</span>`).join("");
+  h+=`<span><i class="chip" style="background:var(--frei)"></i>Frei</span><span><i class="chip" style="background:var(--krank)"></i>Krank</span>`;
+  h+=`<span><i class="chip" style="outline:2px solid var(--wunsch);background:transparent"></i>Wunschfrei</span><span><i class="chip" style="outline:2px solid var(--urlaub);background:transparent"></i>Urlaub</span>`;
+  l.innerHTML=h;
+}
+function renderGridNamen(){ document.querySelectorAll('#gridBody tr').forEach(tr=>{ const id=tr.dataset.id; const m=state.team.find(x=>x.id===id); if(m) tr.querySelector('td').innerHTML=`${esc(m.name)}${m.springer?' <span class="badge SPR">Springer</span>':''}`; }); }
+function renderGrid(){
+  const [j,m]=state.monat, tage=tageImMonat(j,m);
+  const head=document.getElementById("gridHead"), body=document.getElementById("gridBody");
+  let h="<tr><th style='text-align:left;min-width:120px'>Mitarbeiter</th>";
+  for(let d=1; d<=tage; d++) h+=`<th class="${istWE(j,m,d)?'we':''}">${d}</th>`;
+  head.innerHTML=h+"</tr>"; body.innerHTML="";
+  state.team.forEach(mitar=>{
+    if(!mitar.name) return;
+    state.plan[mitar.id]=state.plan[mitar.id]||{};
+    const wset=new Set((mitar.wunschfrei||[])), uset=new Set((mitar.urlaub||[]));
+    const tr=document.createElement("tr"); tr.dataset.id=mitar.id;
+    let row=`<td style="text-align:left">${esc(mitar.name)}${mitar.springer?' <span class="badge SPR">Springer</span>':''}</td>`;
+    for(let d=1; d<=tage; d++){
+      const is=iso(j,m,d); const art=state.plan[mitar.id][is]||"";
+      const req=wset.has(is)?"reqWunsch":uset.has(is)?"reqUrlaub":"";
+      const bg=art?`style="background:${zellFarbe(art)}"`:"";
+      row+=`<td class="cell ${istWE(j,m,d)?'we':''} ${req}" ${bg} data-id="${mitar.id}" data-iso="${is}">${kuerzel(art)}</td>`;
+    }
+    tr.innerHTML=row; tr.querySelectorAll("td.cell").forEach(td=>td.onclick=(e)=>{ e.stopPropagation(); zelleKlick(td); }); body.appendChild(tr);
+  });
+}
+function zelleKlick(td){
+  const id=td.dataset.id, is=td.dataset.iso;
+  const menu=document.getElementById('zellMenu');
+  const cur=(state.plan[id]&&state.plan[id][is])||'';
+  const opts=[['','(leer)'], ...state.schichtarten.map(s=>[s.id, s.kuerzel+' · '+s.name]), ['FREI','– Frei'], ['KRANK','K Krank']];
+  menu.innerHTML=opts.map(([v,label])=>`<div class="zmItem${v===cur?' akt':''}" data-v="${esc(v)}">${esc(label)}</div>`).join('');
+  const rect=td.getBoundingClientRect();
+  menu.style.left=(window.scrollX+rect.left)+'px';
+  menu.style.top=(window.scrollY+rect.bottom+2)+'px';
+  menu.style.display='block';
+  menu.querySelectorAll('.zmItem').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); setZelle(id,is,el.dataset.v); menu.style.display='none'; });
+}
+function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; if(v) state.plan[id][is]=v; else delete state.plan[id][is]; renderGrid(); speichernLokal(); }
+document.addEventListener('click', ()=>{ const m=document.getElementById('zellMenu'); if(m && m.style.display==='block') m.style.display='none'; });
+
+/* Dienstplan drucken (ohne Popup — nutzt Druckbereich + @media print) */
+function druckDienstplan(){
+  const [j,m]=state.monat, tage=tageImMonat(j,m);
+  let h=`<h3>Dienstplan ${String(m).padStart(2,'0')}/${j}</h3><table><thead><tr><th>Mitarbeiter</th>`;
+  for(let d=1;d<=tage;d++) h+=`<th>${d}</th>`;
+  h+='</tr></thead><tbody>';
+  for(const mi of state.team){ if(!mi.name) continue;
+    h+=`<tr><td class="nm">${esc(mi.name)}</td>`;
+    for(let d=1;d<=tage;d++){ const a=(state.plan[mi.id]||{})[iso(j,m,d)]||''; h+=`<td>${a?esc(kuerzel(a)):''}</td>`; }
+    h+='</tr>';
+  }
+  h+='</tbody></table><p style="font-size:9px;margin-top:8px">Legende: '+state.schichtarten.map(s=>esc(s.kuerzel+'='+s.name)).join(' · ')+' · –=Frei · K=Krank</p>';
+  document.getElementById('druckbereich').innerHTML=h;
+  window.print();
+}
+
+/* Dienstplan an Mitarbeiter senden/teilen (Handy: Teilen-Menü; sonst Zwischenablage/E-Mail) */
+async function teileDienstplan(){
+  const [j,m]=state.monat, tage=tageImMonat(j,m);
+  let txt=`Dienstplan ${String(m).padStart(2,'0')}/${j}\n\n`;
+  for(const mi of state.team){ if(!mi.name) continue;
+    const ds=[]; for(let d=1;d<=tage;d++){ const a=(state.plan[mi.id]||{})[iso(j,m,d)]; if(a) ds.push(d+'.: '+kuerzel(a)); }
+    txt+=`${mi.name}:\n  ${ds.join(', ')||'—'}\n`;
+  }
+  txt+=`\nLegende: ${state.schichtarten.map(s=>s.kuerzel+'='+s.name).join(' · ')} · –=Frei · K=Krank`;
+  const titel=`Dienstplan ${String(m).padStart(2,'0')}/${j}`;
+  try{ if(navigator.share){ await navigator.share({title:titel, text:txt}); setStatus('✅ Teilen-Menü geöffnet (WhatsApp/E-Mail wählen).'); return; } }
+  catch(e){ return; /* Nutzer hat abgebrochen */ }
+  try{ await navigator.clipboard.writeText(txt); setStatus('✅ Dienstplan in die Zwischenablage kopiert — in WhatsApp/E-Mail einfügen.'); }
+  catch(e){ location.href='mailto:?subject='+encodeURIComponent(titel)+'&body='+encodeURIComponent(txt); }
+}
+
+/* Aktionen */
+function pruefen(){
+  letzteGeprueft=true;
+  const v=pruefeAlles(); const box=document.getElementById("ergebnis");
+  const aus=deaktivierteKern();
+  const banner = aus.length ? `<div class="warnbanner">⚠️ <b>Unvollständig geprüft</b> — abgeschaltet: ${esc(aus.join(', '))}. Ein grünes Ergebnis bedeutet <b>nicht</b> „alles sauber", sondern nur: keine Auffälligkeit in den <i>aktivierten</i> Prüfungen.</div>` : "";
+  if(!v.length){ box.innerHTML=banner+`<span class="ok">✅ Keine Auffälligkeiten in den aktivierten Prüfungen.</span> <span class="mini">Nicht aktivierte Regeln und fehlende Daten bleiben unberücksichtigt.</span>`; return; }
+  const g=v.filter(x=>x.schwere==="GESETZ").length;
+  box.innerHTML=banner+`<p class="mini">${v.length} Punkt(e), davon <b>${g} GESETZ-kritisch</b>:</p>`+
+    v.map(x=>`<div class="item ${x.schwere}"><span class="badge ${x.schwere}">${x.schwere}</span><b>${esc(x.mitarbeiter)}</b>${x.tag?" · "+x.tag.split('-').reverse().join('.'):""}: ${esc(x.text)}</div>`).join("");
+}
+function einspringen(){
+  const d=parseInt(document.getElementById("einsTag").value,10); const box=document.getElementById("einsErg");
+  if(!d){ box.innerHTML='<span class="nein">Bitte Tag eingeben.</span>'; return; }
+  const [j,m]=state.monat;
+  if(d<1 || d>tageImMonat(j,m)){ box.innerHTML=`<span class="nein">Ungültiger Tag für ${String(m).padStart(2,'0')}/${j} (nur 1–${tageImMonat(j,m)}).</span>`; return; }
+  const tag=iso(j,m,d); const art=document.getElementById("einsArt").value;
+  if(!art){ box.innerHTML='<span class="nein">Bitte zuerst eine Schichtart anlegen.</span>'; return; }
+  const {geeignet,abgelehnt}=werKannEinspringen(tag,art);
+  let h="";
+  if(geeignet.length){
+    h+=`<p class='gut'>✅ Nach aktuellen Daten &amp; aktivierten Prüfungen geeignet für ${esc(nm(art))} am ${d}. — Zusage &amp; Freigabe stehen aus (Springer &amp; geringste Auslastung zuerst):</p>`;
+    h+=geeignet.map(k=>`<div class="item HINWEIS" style="border-color:var(--ok)"><b>${esc(k.name)}</b>${k.springer?' <span class="badge SPR">Springer</span>':''} — Auslastung ${Math.round(k.auslastung*100)} % · Nächte: ${k.naechte} · Rest-Soll: ${k.rest>0?'+':''}${Math.round(k.rest)} h <span class="mini">(${esc(k.grund)})</span>${(k.warnungen&&k.warnungen.length)?`<div class="mini" style="color:var(--fairness)">⚠ Hinweis: ${esc(k.warnungen.join('; '))}</div>`:''}</div>`).join("");
+    h+=`<p class="mini">Die endgültige Entscheidung trifft die Leitung. Nicht aktivierte Plan-Prüfungen sind hier nicht berücksichtigt.</p>`;
+  } else {
+    h+=`<div class="unterdeckung"><b>⚠️ UNTERDECKUNG — keine geeignete Vertretung unter den hinterlegten Daten &amp; geprüften Bedingungen gefunden.</b>
+      <p style="margin:8px 0 4px">Das Tool setzt <b>NICHT automatisch</b> jemanden in einen unzulässigen Dienst. Nächste Schritte:</p>
+      <ol style="margin:4px 0 0 18px;padding:0"><li>Leitung informieren (Dienst bleibt sichtbar offen).</li><li>Vereinbarte Eskalation: Springerpool / Bereitschaft / Nachbarstation.</li><li>Entscheidung &amp; Risiko schriftlich dokumentieren.</li></ol>
+      <p class="mini" style="margin-top:8px">Echter Sonderfall ohne Alternative (z. B. Erkrankung, niemand sonst da): Die Leitung kann bewusst jemanden <b>manuell im Dienstplan eintragen</b> — auch einen 24-h-Dienst. Das Tool <b>warnt dann rot, blockiert aber nicht</b>. Bitte Entscheidung und Grund dokumentieren.</p></div>`;
+  }
+  if(abgelehnt.length){ h+="<p class='nein' style='margin-top:6px'>Warum die anderen nicht infrage kommen:</p>"+abgelehnt.map(a=>`<div class="mini">${esc(a)}</div>`).join(""); }
+  box.innerHTML=h;
+}
+
+/* Datei / CSV / Beispiel / leeren */
+function sichernDatei(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`Dienstplan_${state.monat[0]}-${String(state.monat[1]).padStart(2,'0')}.json`; a.click(); URL.revokeObjectURL(a.href);
+}
+function ladenDatei(ev){
+  const f=ev.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ let kand;
+    try{ const roh=JSON.parse(r.result); const dup=doppelteIds(roh); if(dup) throw new Error('DUP:'+dup); kand=normalisieren(roh); bereinigePlan(kand); }
+    catch(e){ const m=String(e&&e.message||''); alert(m.startsWith('DUP:') ? ('Datei NICHT geladen — doppelte '+m.slice(4)+'. IDs müssen eindeutig sein (mehrdeutige Zuordnung ist nicht automatisch reparierbar). Bisheriger Plan bleibt unverändert.') : 'Datei ungültig — bisheriger Plan bleibt unverändert.'); return; }
+    state=kand; speichernLokal(); aufbauen(); setStatus("✅ Datei geladen"); };
+  r.readAsText(f); ev.target.value="";
+}
+function csvExport(){
+  const cz=x=>'"'+String(x??'').replace(/^[=+@\-]/,"'$&").replace(/"/g,'""')+'"';
+  const [j,m]=state.monat, tage=tageImMonat(j,m);
+  let kopf=["Mitarbeiter"]; for(let d=1;d<=tage;d++) kopf.push(d);
+  const zeilen=[kopf.map(cz).join(";")];
+  for(const mi of state.team){ if(!mi.name) continue;
+    const z=[mi.name];
+    for(let d=1;d<=tage;d++){ const a=(state.plan[mi.id]||{})[iso(j,m,d)]||""; z.push(a?kuerzel(a):""); }
+    zeilen.push(z.map(cz).join(";"));
+  }
+  const blob=new Blob(["﻿"+zeilen.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`Dienstplan_${j}-${String(m).padStart(2,'0')}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+function beispielLaden(){
+  const a=uid(), b=uid(), c=uid(), d=uid();
+  state={ monat:[2026,11], min_ruhe_h:11, einstellungen:stdEinstellungen(),
+    schichtarten:[
+      {id:"F",name:"Tagdienst",kuerzel:"T",start:"07:00",dauer:8,nacht:false,qual:"examiniert",farbe:"#2d6cdf",minBesetzung:0},
+      {id:"N",name:"Nachtdienst",kuerzel:"N",start:"22:00",dauer:8,nacht:true,qual:"examiniert",farbe:"#7a4ed9",minBesetzung:0},
+    ],
+    team:[
+      {id:a,name:"Alex",vertrag:"Vollzeit",soll_stunden:174,springer:false,qualifikationen:["examiniert"],wunschfrei:[],urlaub:[]},
+      {id:b,name:"Kim", vertrag:"Teilzeit",soll_stunden:100,springer:true, qualifikationen:["Hilfskraft"],wunschfrei:[],urlaub:[]},
+      {id:c,name:"Sam", vertrag:"Teilzeit",soll_stunden:100,springer:true, qualifikationen:["examiniert"],wunschfrei:[],urlaub:[]},
+      {id:d,name:"Dana",vertrag:"Minijob", soll_stunden:40, springer:false,qualifikationen:["examiniert"],wunschfrei:[],urlaub:[]},
+    ],
+    plan:{ [a]:{"2026-11-29":"N","2026-11-30":"N"},
+           [d]:{"2026-11-01":"F","2026-11-02":"F","2026-11-03":"F","2026-11-04":"F","2026-11-05":"F","2026-11-06":"F"} }
+  };
+  normalisieren(); speichernLokal(); aufbauen();
+  document.getElementById("einsTag").value=30; document.getElementById("einsArt").value="F";
+  setStatus("Beispiel geladen — teste die Krankmeldung am 30. (Tagdienst).");
+}
+function vorlageIHM(){
+  const mo = state.monat || [new Date().getFullYear(), new Date().getMonth()+1];
+  state={ monat:mo, min_ruhe_h:11, einstellungen:stdEinstellungen(),
+    schichtarten:[
+      {id:'T',  name:'Tag (T)',          kuerzel:'T',  start:'08:00', dauer:12,  nacht:false, qual:'', farbe:'#2d6cdf', minBesetzung:0},
+      {id:'T1', name:'Tag früh (T1)',    kuerzel:'T1', start:'07:00', dauer:12,  nacht:false, qual:'', farbe:'#2f7fd1', minBesetzung:0},
+      {id:'T2', name:'Tag spät (T2)',    kuerzel:'T2', start:'09:00', dauer:12,  nacht:false, qual:'', farbe:'#2f91c7', minBesetzung:0},
+      {id:'N',  name:'Nacht (N)',        kuerzel:'N',  start:'20:00', dauer:12,  nacht:true,  qual:'', farbe:'#7a4ed9', minBesetzung:0},
+      {id:'N1', name:'Nacht (N1)',       kuerzel:'N1', start:'19:00', dauer:12,  nacht:true,  qual:'', farbe:'#6d4ec9', minBesetzung:0},
+      {id:'N2', name:'Nacht (N2)',       kuerzel:'N2', start:'21:00', dauer:12,  nacht:true,  qual:'', farbe:'#8a5ee0', minBesetzung:0},
+      {id:'TN1',name:'24h-Dienst (TN1)', kuerzel:'TN1',start:'08:00', dauer:24,  nacht:true,  qual:'', farbe:'#c0392b', minBesetzung:0},
+      {id:'TN2',name:'24h-Dienst (TN2)', kuerzel:'TN2',start:'09:00', dauer:24,  nacht:true,  qual:'', farbe:'#b83a2e', minBesetzung:0},
+      {id:'TN3',name:'24h-Dienst (TN3)', kuerzel:'TN3',start:'07:00', dauer:24,  nacht:true,  qual:'', farbe:'#a83228', minBesetzung:0},
+      {id:'A',  name:'A-Dienst',         kuerzel:'A',  start:'08:00', dauer:9.5, nacht:false, qual:'', farbe:'#2e9e6b', minBesetzung:0},
+      {id:'EAT',name:'Einarbeitung Tag (EAT)',  kuerzel:'EAT',start:'08:00',dauer:12, nacht:false,qual:'',farbe:'#4c8dff',minBesetzung:0},
+      {id:'EAN',name:'Einarbeitung Nacht (EAN)',kuerzel:'EAN',start:'20:00',dauer:12, nacht:true, qual:'',farbe:'#6b5ed9',minBesetzung:0},
+    ],
+    team:[neuerMitarbeiter()], plan:{} };
+  normalisieren(); speichernLokal(); aufbauen();
+  setStatus("Dienstzeiten-Vorlage geladen (T/N/24h, aus Screenshot abgeleitet). Bedeutungen & weitere Codes (FZA/BÜ/CB) bitte mit deiner Frau/Einrichtung bestätigen. Urlaub=Team-Feld, Frei/Krank=Rasterzelle.");
+}
+function leeren(){
+  if(!confirm("Wirklich ALLES löschen? (Schichtarten, Team und Plan)")) return;
+  const h=new Date(); state={monat:[h.getFullYear(),h.getMonth()+1],min_ruhe_h:11,schichtarten:standardSchichtarten(),einstellungen:stdEinstellungen(),team:[neuerMitarbeiter()],plan:{}};
+  normalisieren(); speichernLokal(); aufbauen();
+}
+
+/* Modal / Handbuch / Einrichtungs-Assistent */
+function modalOeffnen(html){ document.getElementById('modalbox').innerHTML='<span class="zu" onclick="modalSchliessen()">✕</span>'+html; document.getElementById('modal').classList.add('offen'); }
+function modalSchliessen(){ document.getElementById('modal').classList.remove('offen'); }
+function assStatus(t){ const s=document.getElementById('assiststatus'); if(s) s.textContent='✅ '+t; }
+// Schichtkatalog wechseln mit Vorschau + Bestätigung (kein stiller Datenverlust)
+function katalogWechseln(neu, bezeichnung){
+  const neuMap=new Map(neu.map(s=>[s.id,s]));
+  let entf=0, geaendert=0;
+  for(const pid in state.plan){ for(const k in state.plan[pid]){ const c=state.plan[pid][k]; if(!c || FEST[c]) continue;
+    const nd=neuMap.get(c), cd=def(c);
+    if(!nd) entf++;
+    else if(cd && (cd.start!==nd.start || +cd.dauer!==+nd.dauer || !!cd.nacht!==!!nd.nacht)) geaendert++;
+  } }
+  if(entf||geaendert){
+    let msg='';
+    if(entf) msg+=`${entf} Eintrag/e nutzen unbekannte Schichten und werden ENTFERNT. `;
+    if(geaendert) msg+=`${geaendert} Eintrag/e behalten ihr Kürzel, bekommen aber andere Zeiten/Dauer. `;
+    if(!confirm(msg+'Vorher ggf. „Als Datei sichern". Trotzdem wechseln?')){ assStatus('Abgebrochen — nichts geändert.'); return false; }
+  }
+  state.schichtarten=neu; const weg=bereinigePlan(); renderSchichtarten(); renderEinsArt(); renderGrid(); renderLegend(); speichernLokal();
+  assStatus(bezeichnung+' gesetzt'+(weg?` — ${weg} Eintrag/e entfernt`:'')+(geaendert?`; ${geaendert} neu interpretiert`:'')+'.');
+  return true;
+}
+function zweiSchichten(){ return [
+  {id:'T',name:'Tagdienst',  kuerzel:'T', start:'06:00', dauer:12, nacht:false, qual:'', farbe:'#2d6cdf', minBesetzung:0},
+  {id:'N',name:'Nachtdienst',kuerzel:'N', start:'18:00', dauer:12, nacht:true,  qual:'', farbe:'#7a4ed9', minBesetzung:0},
+];}
+function assZwei(){ katalogWechseln(zweiSchichten(), '2-Schicht (Tag/Nacht 12 h)'); }
+function assDrei(){ katalogWechseln(standardSchichtarten(), '3-Schicht (Früh/Spät/Nacht)'); }
+function assStandard(){ assDrei(); }  // Rückwärtskompatibel
+function assRuhe(h){ state.min_ruhe_h=h; const el=document.getElementById('ruhe'); if(el) el.value=String(h); speichernLokal(); assStatus('Ruhezeit-Minimum auf '+h+' h gesetzt.'); }
+function assPruef(modus){
+  const e=state.einstellungen;
+  if(modus==='alle'){ for(const k of ['qualifikation','wunschfrei','ruhetage','dienstdauer','nachtfair','stunden','folge','mindestbesetzung']) e[k].an=true; assStatus('Alle Prüfungen aktiviert (Mindestbesetzung wirkt nur mit gesetztem „Mind."-Wert).'); }
+  else { e.qualifikation.an=true; e.dienstdauer.an=true; e.stunden.an=true; e.ruhetage.an=false; e.nachtfair.an=false; e.wunschfrei.an=false; e.folge.an=false; e.mindestbesetzung.an=false; assStatus('Pflicht-Prüfungen aktiv (Qualifikation, Dienstdauer, Stunden/Minijob); Fairness aus. KEINE vollständige Rechtsprüfung.'); }
+  renderEinstellungen(); speichernLokal();
+}
+function assistent(){
+  modalOeffnen('<h3>🧭 Einrichtungs-Assistent</h3>'+
+  '<p class="mini">Stellt das Tool mit wenigen Klicks passend ein — regelbasiert, ohne Cloud-KI, offline &amp; kostenlos. Danach kannst du alles von Hand feinjustieren.</p>'+
+  '<div class="assistgrp"><b>1 · Welches Schichtmodell habt ihr?</b>'+
+    '<button onclick="assZwei()">2-Schicht (Tag / Nacht, je 12 h)</button> '+
+    '<button onclick="assDrei()">3-Schicht (Früh / Spät / Nacht)</button> '+
+    '<button onclick="vorlageIHM()">🏥 IHM-Dienste (T/N/24h …) — leert Team/Plan</button>'+
+    '<p class="mini">Eigene Dienste/Zeiten? Einfach unten unter „Schichtarten" ergänzen oder ändern.</p></div>'+
+  '<div class="assistgrp"><b>2 · Ruhezeit laut eurem Tarif / eurer Dienstvereinbarung?</b>'+
+    '<button onclick="assRuhe(11)">11 h (Gesetz)</button> <button onclick="assRuhe(10)">10 h (Pflege-Tarif)</button> <button onclick="assRuhe(9.25)">9,25 h (Dienstvereinbarung)</button>'+
+    '<p class="mini">Im Zweifel 11 h. Kürzer nur, wenn Tarif/DV es ausdrücklich erlaubt.</p></div>'+
+  '<div class="assistgrp"><b>3 · Wie streng prüfen?</b>'+
+    '<button onclick="assPruef(\'alle\')">Alle Prüfungen aktivieren</button> <button onclick="assPruef(\'gesetz\')">Pflicht-Prüfungen (Fairness aus)</button>'+
+    '<p class="mini">„Pflicht-Prüfungen" ist KEINE vollständige Rechtsprüfung — das ArbZG regelt auch Pausen, Nacht-, Sonn- und Feiertagsarbeit.</p></div>'+
+  '<div class="assistgrp"><b>4 · Springer</b>'+
+    '<p class="mini">Markiere Springer im Team mit dem Häkchen „Springer" — sie werden bei der Vertretersuche zuerst vorgeschlagen (euer Wunsch aus dem Gespräch).</p></div>'+
+  '<div id="assiststatus"></div>'+
+  '<p style="margin-top:14px"><button class="primary" onclick="modalSchliessen()">Fertig</button></p>');
+}
+function handbuch(){
+  modalOeffnen(
+  '<h3>📖 Handbuch</h3>'+
+  '<p><b>Grundprinzip:</b> Das Tool <b>besetzt keine Dienste automatisch und blockiert nichts.</b> Der Mensch plant und entscheidet. Bestätigte Einrichtungsaktionen (z. B. der Assistent) können Einstellungen und Vorlagen ändern. Es läuft 100 % lokal im Browser (Handy, Tablet, PC); die Daten bleiben nur auf dem Gerät, nichts geht ins Internet.</p>'+
+  '<h4>Schnellstart</h4><ol style="margin:6px 0 6px 18px;padding:0">'+
+    '<li><b>🧭 Einrichtungs-Assistent</b> oder <b>🏥 Pflege-Vorlage laden</b> → eure Dienste sind da.</li>'+
+    '<li><b>Team</b> eintragen (nur Vornamen/Kürzel).</li>'+
+    '<li><b>Dienstplan</b>: in eine Zelle klicken wechselt die Schicht.</li>'+
+    '<li><b>🛡️ Plan prüfen</b> → zeigt Gesetz- &amp; Fairness-Punkte.</li>'+
+    '<li><b>🔍 Vertretung suchen</b> → wer kann bei Ausfall einspringen.</li></ol>'+
+  '<h4>Kopfzeile</h4><ul>'+
+    '<li><b>Monat</b>: wählt den angezeigten Monat. Stunden/Nächte werden je Monat gezählt, zugeordnet nach dem <b>Startdatum</b> des Dienstes (ein Nachtdienst 30.→1. zählt ganz zum Startmonat).</li>'+
+    '<li><b>Ruhezeit-Minimum</b>: 11 h (Gesetz) / 10 / 9,25 (nur mit Tarif/DV).</li>'+
+    '<li><b>Als Datei sichern</b> (JSON) / <b>Datei laden</b>: Plan weitergeben oder zurückholen.</li>'+
+    '<li><b>Plan als CSV</b>: Tabelle z. B. für Excel. <b>Alles leeren</b>: Neustart.</li></ul>'+
+  '<h4>⚙️ Einstellungen (jede Prüfung an/aus + Grenzwerte)</h4><ul>'+
+    '<li><b>Qualifikation</b>: Einspringer ohne nötige Quali wird gesperrt.</li>'+
+    '<li><b>Wunschfrei</b>: meldet, wenn jemand trotz Wunschfrei eingeplant ist.</li>'+
+    '<li><b>Ruhetage nach Nacht</b> (+ Anzahl): zu wenig freie Tage nach Nachtblock.</li>'+
+    '<li><b>Max. Dienstdauer</b> (+ Stunden): Dienst über der Grenze (§3 ArbZG).</li>'+
+    '<li><b>Nacht-Fairness</b> (+ Abstand): ungleiche Verteilung der Nachtdienste.</li>'+
+    '<li><b>Soll-Stunden</b> (+ Toleranz): Über/Unter dem Monats-Soll; Minijob-Deckel.</li>'+
+    '<li><b>Max. Dienste in Folge</b> / <b>Mindestbesetzung</b>: zuschaltbar.</li>'+
+    '<li>Abgeschaltete Prüfungen erscheinen beim Ergebnis als Warnung „unvollständig geprüft".</li></ul>'+
+  '<h4>Schichtarten</h4><p>Beliebig viele Dienste. Spalten: <b>Name · Kürzel · Start (HH:MM) · Dauer (h, auch 12/24) · Nacht · nötige Quali · Mind.(qualifizierte Besetzung/Tag) · Farbe</b>. Löschen entfernt auch die zugehörigen Planeinträge.</p>'+
+  '<h4>Team</h4><p><b>Name · Vertrag</b> (Vollzeit/Teilzeit/Minijob/Geteilt) <b>· Soll-h</b> (pro Monat) <b>· Springer · Qualifikationen</b> (Liste) <b>· Wunschfrei · Urlaub</b> (Tagesnummern des gewählten Monats, werden als volle Datumswerte gespeichert — verrutschen nicht beim Monatswechsel).</p>'+
+  '<h4>Dienstplan-Raster</h4><p>Zelle anklicken: leer → deine Schichtarten → <b>Frei</b> → <b>Krank</b> → leer. Grüner Rahmen = Wunschfrei, türkis = Urlaub. Die Namensspalte bleibt beim Scrollen stehen.</p>'+
+  '<h4>Prüf-Ergebnis</h4><p><b>GESETZ</b> (rot) = rechtlich kritisch · <b>FAIRNESS</b> (gelb) · <b>HINWEIS</b> (blau). Nach jeder Änderung wird ein altes Ergebnis als „veraltet" markiert — bitte neu prüfen.</p>'+
+  '<h4>🔍 Vertretung / Krankmeldung</h4><p>Tag + Schicht wählen. Reihenfolge: <b>Springer zuerst</b>, dann geringste Auslastung, dann wenigste Nächte. Geprüft wird dieselbe Gesetzeslogik wie im Plan (Ruhezeit auch über Monatswechsel, Überschneidung langer Dienste, Dienstdauer, Minijob, Quali, Urlaub/Wunschfrei). Wird <b>unter den hinterlegten Daten &amp; geprüften Bedingungen keine geeignete Vertretung</b> gefunden, erscheint <b>Unterdeckung + Eskalation</b> — es wird <b>niemand automatisch</b> eingesetzt. (Das heißt nicht, dass es rechtlich gar keine Option gibt — nur keine nach den aktivierten Prüfungen.)</p>'+
+  '<h4>Lange Dienste &amp; Ausnahmesituationen dokumentieren</h4><p>Echter Notfall ohne Alternative (Erkrankung, niemand sonst): Du kannst <b>jeden</b> Dienst — auch 24 h — <b>manuell in den Plan klicken</b>. Das Tool <b>warnt rot, blockiert aber nicht</b>. Bitte Entscheidung &amp; Grund dokumentieren. (Geplanter Einsatz und tatsächlich geleistete Zeit sind verschiedene Dinge; Ausnahmen regelt das ArbZG eigens.)</p>'+
+  '<h4>Datenschutz &amp; Grenzen</h4><ul>'+
+    '<li>Zum Testen <b>nur fiktive Namen/Kürzel</b> — keine echten Patienten-/Kollegennamen.</li>'+
+    '<li>Das Tool ist eine <b>Hilfe, kein Rechtsgutachten</b> und kein unabhängiges Audit.</li>'+
+    '<li>Es ersetzt <b>kein</b> bestehendes System (z. B. IHM) — es hilft beim <b>Planen &amp; Einspringen</b>.</li></ul>'+
+  '<p style="margin-top:14px"><button class="primary" onclick="modalSchliessen()">Schließen</button></p>');
+}
+
+init();
+</script>
+</body>
+</html>
