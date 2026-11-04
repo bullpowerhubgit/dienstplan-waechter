@@ -78,6 +78,7 @@
   #zellMenu .zmSec{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;padding:7px 10px 3px;border-top:1px solid var(--line);margin-top:3px}
   #zellMenu .zmSec:first-child{border-top:none;margin-top:0}
   .patbadge{font-size:8px;color:#fff;padding:0 2px;border-radius:2px;margin-left:1px;vertical-align:super}
+  .pname:hover{text-decoration:underline;color:var(--accent)}
   #druckbereich{display:none}
   @media print{
     body>header,body>main,#modal,#zellMenu{display:none !important;}
@@ -214,7 +215,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-L</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-M</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -631,7 +632,7 @@ function renderStundenkonto(){
     const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id), diff=ist-soll, ueb=(+m.uebertrag||0), saldo=ueb+diff;
     const cD=diff<0?'var(--krank)':(diff>0?'var(--wunsch)':'var(--dim)');
     const cS=saldo<0?'var(--krank)':(saldo>0?'var(--wunsch)':'var(--dim)');
-    h+=`<tr data-id="${m.id}"><td style="text-align:left">${esc(m.name)}</td>`+
+    h+=`<tr data-id="${m.id}"><td class="pname" style="text-align:left;cursor:pointer" title="Personen-Info anzeigen" onclick="personInfo('${m.id}')">${esc(m.name)}</td>`+
        `<td><input type="number" step="0.25" value="${ueb}" style="width:80px" class="uebI" title="Plus-/Minus-Stunden aus dem Vormonat (± erlaubt)"></td>`+
        `<td>${fmtStd(soll)}</td><td>${fmtStd(ist)}</td>`+
        `<td style="color:${cD};font-weight:600">${fmtSaldo(diff)}</td>`+
@@ -724,7 +725,7 @@ function renderGrid(){
     state.plan[mitar.id]=state.plan[mitar.id]||{};
     const wset=new Set((mitar.wunschfrei||[])), uset=new Set((mitar.urlaub||[]));
     const tr=document.createElement("tr"); tr.dataset.id=mitar.id;
-    let row=`<td style="text-align:left">${esc(mitar.name)}${mitar.springer?' <span class="badge SPR">Springer</span>':''}</td>`;
+    let row=`<td class="pname" style="text-align:left;cursor:pointer" title="Personen-Info anzeigen" onclick="personInfo('${mitar.id}')">${esc(mitar.name)}${mitar.springer?' <span class="badge SPR">Springer</span>':''}</td>`;
     for(let d=1; d<=tage; d++){
       const is=iso(j,m,d); const art=state.plan[mitar.id][is]||"";
       const req=wset.has(is)?"reqWunsch":uset.has(is)?"reqUrlaub":"";
@@ -756,6 +757,29 @@ function arbeitsbericht(id,is){
     rows+=`<tr><td>Eintrag</td><td><b>${esc(nm(art)||'(leer)')}</b></td></tr>`;
   }
   modalOeffnen(`<h3>📋 Arbeitsbericht</h3><table class="bericht">${rows}</table><p class="mini" style="margin-top:10px">Berechnet aus dem Dienstplan (Zeiten aus der Schichtart). Kein externer Datenabgleich.</p>`);
+}
+function personInfo(id){
+  const m=state.team.find(x=>x.id===id); if(!m) return;
+  const [j,mo]=state.monat;
+  const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id), diff=ist-soll, ueb=(+m.uebertrag||0), saldo=ueb+diff;
+  const naechte=naechteMonat(m.id), anzDienste=dienste(m.id).filter(([t,a])=>istArbeit(a)&&imMonat(t)).length;
+  const uA=urlaubAnspruchVon(m), uG=urlaubGenommen(m), uR=urlaubRest(m);
+  const wfTage=tageImFeld(m,'wunschfrei'), urTage=tageImFeld(m,'urlaub');
+  const col=(x)=>x<0?'var(--krank)':(x>0?'var(--wunsch)':'var(--txt)');
+  let rows='';
+  rows+=`<tr><td>Vertrag</td><td><b>${esc(m.vertrag||'—')}</b>${m.springer?' · <span class="badge SPR">Springer</span>':''}</td></tr>`;
+  rows+=`<tr><td>Qualifikationen</td><td>${esc((m.qualifikationen||[]).join(', '))||'—'}</td></tr>`;
+  rows+=`<tr><td>Monat</td><td>${MONATE[mo-1]} ${j}</td></tr>`;
+  rows+=`<tr><td>Dienste · Nächte</td><td><b>${anzDienste}</b> Dienste · <b>${naechte}</b> Nächte</td></tr>`;
+  rows+=`<tr><td>Soll · Ist (geplant)</td><td><b>${fmtStd(soll)}</b> / <b>${fmtStd(ist)}</b> h</td></tr>`;
+  rows+=`<tr><td>Übertrag (Vormonat)</td><td>${fmtSaldo(ueb)} h</td></tr>`;
+  rows+=`<tr><td>Monat +/-</td><td style="color:${col(diff)};font-weight:700">${fmtSaldo(diff)} h</td></tr>`;
+  rows+=`<tr><td>Saldo (Guthaben)</td><td style="color:${col(saldo)};font-weight:700">${fmtSaldo(saldo)} h</td></tr>`;
+  rows+=`<tr><td>Urlaub</td><td>Anspruch <b>${uA}</b> · genommen <b>${uG}</b> · <b style="color:${uR<0?'var(--krank)':'var(--wunsch)'}">Rest ${uR}</b></td></tr>`;
+  if(wfTage) rows+=`<tr><td>Wunschfrei (Monat)</td><td>${esc(wfTage)}</td></tr>`;
+  if(urTage) rows+=`<tr><td>Urlaub-Tage (Monat)</td><td>${esc(urTage)}</td></tr>`;
+  if(istMinijob(m) && ist>soll) rows+=`<tr><td>⚠️ Minijob</td><td style="color:var(--krank)">über Stunden-Deckel (${fmtStd(ist)} > ${fmtStd(soll)} h)</td></tr>`;
+  modalOeffnen(`<h3>👤 ${esc(m.name||'(ohne Name)')}</h3><table class="bericht">${rows}</table><p class="mini" style="margin-top:10px">Werte für ${MONATE[mo-1]} ${j}, aus dem Dienstplan berechnet.</p>`);
 }
 function zelleKlick(td){
   const id=td.dataset.id, is=td.dataset.iso;
