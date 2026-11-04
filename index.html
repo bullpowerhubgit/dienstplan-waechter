@@ -210,16 +210,17 @@
   </div>
 
   <div class="panel">
-    <h2>4 · Krankmeldung — wer kann einspringen?</h2>
+    <h2>4 · Einteilungs-Vorschlag &amp; Krankmeldung — wer passt?</h2>
+    <p class="hint">Tag + Schicht wählen → <b>rangierte Vorschläge</b>, wer passt (Springer zuerst, dann geringste Auslastung, dann wenigste Nächte) + Begründung, warum andere nicht. Mit <b>„✚ eintragen"</b> übernimmst du einen Vorschlag direkt in den Plan. Tipp: Im Raster auf eine Zelle tippen → <b>„💡 Wer passt an Tag …?"</b> öffnet das hier automatisch. <b>Das Tool entscheidet nie selbst.</b></p>
     <div class="row">
       <label class="ctl">Tag <input type="number" id="einsTag" min="1" max="31" style="width:70px"></label>
       <label class="ctl">Schicht <select id="einsArt"></select></label>
-      <button class="primary" onclick="einspringen()">🔍 Geeignete Vertretung suchen</button>
+      <button class="primary" onclick="einspringen()">🔍 Vorschläge anzeigen (wer passt?)</button>
     </div>
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-N</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-O</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -493,7 +494,7 @@ function werKannEinspringen(tag, art){
     const res = probeKonflikte(m, tag, art);
     if(res.konflikte.length){ abgelehnt.push(`⛔ ${m.name}: ${res.konflikte.join('; ')}`); continue; }
     const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id);
-    geeignet.push({name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen:res.warnungen||[]});
+    geeignet.push({id:m.id, name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen:res.warnungen||[]});
   }
   geeignet.sort((a,b)=> (b.springer-a.springer) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
   return {geeignet,abgelehnt};
@@ -791,7 +792,7 @@ function zelleKlick(td){
   const cur=(state.plan[id]&&state.plan[id][is])||'';
   const curP=(state.zuordnung[id]&&state.zuordnung[id][is])||'';
   const opts=[['','(leer)'], ...state.schichtarten.map(s=>[s.id, s.kuerzel+' · '+s.name]), ['FREI','– Frei'], ['KRANK','K Krank'], ['WUNSCHFREI','WF · Wunschfrei'], ['URLAUB','Url · Urlaub']];
-  let html=(istArbeit(cur)?`<div class="zmItem" data-kind="info" style="color:var(--accent);font-weight:600">📋 Arbeitsbericht anzeigen</div>`:'')+'<div class="zmSec">Dienst</div>'+opts.map(([v,label])=>`<div class="zmItem${v===cur?' akt':''}" data-kind="shift" data-v="${esc(v)}">${esc(label)}</div>`).join('');
+  let html=`<div class="zmItem" data-kind="vorschlag" style="color:var(--accent);font-weight:600">💡 Wer passt an Tag ${parseInt(is.split('-')[2],10)}?</div>`+(istArbeit(cur)?`<div class="zmItem" data-kind="info" style="color:var(--accent);font-weight:600">📋 Arbeitsbericht anzeigen</div>`:'')+'<div class="zmSec">Dienst</div>'+opts.map(([v,label])=>`<div class="zmItem${v===cur?' akt':''}" data-kind="shift" data-v="${esc(v)}">${esc(label)}</div>`).join('');
   const patAktiv=state.patienten.filter(p=>p.name);
   if(patAktiv.length){
     html+='<div class="zmSec">Für Patient / Klient</div>';
@@ -804,7 +805,8 @@ function zelleKlick(td){
   menu.style.top=(window.scrollY+rect.bottom+2)+'px';
   menu.style.display='block';
   menu.querySelectorAll('.zmItem').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); menu.style.display='none';
-    if(el.dataset.kind==='info'){ arbeitsbericht(id,is); }
+    if(el.dataset.kind==='vorschlag'){ vorschlagFuerTag(is); }
+    else if(el.dataset.kind==='info'){ arbeitsbericht(id,is); }
     else if(el.dataset.kind==='pat'){ setPatientZelle(id,is,el.dataset.p); }
     else { setZelle(id,is,el.dataset.v); } });
 }
@@ -893,7 +895,7 @@ function einspringen(){
   let h="";
   if(geeignet.length){
     h+=`<p class='gut'>✅ Nach aktuellen Daten &amp; aktivierten Prüfungen geeignet für ${esc(nm(art))} am ${d}. — Zusage &amp; Freigabe stehen aus (Springer &amp; geringste Auslastung zuerst):</p>`;
-    h+=geeignet.map(k=>`<div class="item HINWEIS" style="border-color:var(--ok)"><b>${esc(k.name)}</b>${k.springer?' <span class="badge SPR">Springer</span>':''} — Auslastung ${Math.round(k.auslastung*100)} % · Nächte: ${k.naechte} · Rest-Soll: ${k.rest>0?'+':''}${Math.round(k.rest)} h <span class="mini">(${esc(k.grund)})</span>${(k.warnungen&&k.warnungen.length)?`<div class="mini" style="color:var(--fairness)">⚠ Hinweis: ${esc(k.warnungen.join('; '))}</div>`:''}</div>`).join("");
+    h+=geeignet.map(k=>`<div class="item HINWEIS" style="border-color:var(--ok)"><button onclick="einteilen('${k.id}','${tag}','${art}')" style="float:right">✚ eintragen</button><b>${esc(k.name)}</b>${k.springer?' <span class="badge SPR">Springer</span>':''} — Auslastung ${Math.round(k.auslastung*100)} % · Nächte: ${k.naechte} · Rest-Soll: ${k.rest>0?'+':''}${Math.round(k.rest)} h <span class="mini">(${esc(k.grund)})</span>${(k.warnungen&&k.warnungen.length)?`<div class="mini" style="color:var(--fairness)">⚠ Hinweis: ${esc(k.warnungen.join('; '))}</div>`:''}</div>`).join("");
     h+=`<p class="mini">Die endgültige Entscheidung trifft die Leitung. Nicht aktivierte Plan-Prüfungen sind hier nicht berücksichtigt.</p>`;
   } else {
     h+=`<div class="unterdeckung"><b>⚠️ UNTERDECKUNG — keine geeignete Vertretung unter den hinterlegten Daten &amp; geprüften Bedingungen gefunden.</b>
@@ -903,6 +905,20 @@ function einspringen(){
   }
   if(abgelehnt.length){ h+="<p class='nein' style='margin-top:6px'>Warum die anderen nicht infrage kommen:</p>"+abgelehnt.map(a=>`<div class="mini">${esc(a)}</div>`).join(""); }
   box.innerHTML=h;
+}
+/* Vorschlag übernehmen: Person für Tag+Schicht in den Plan eintragen (Mensch entscheidet) */
+function einteilen(id, tag, art){
+  setZelle(id, tag, art);
+  const m=state.team.find(x=>x.id===id);
+  setStatus(`✅ ${m?m.name:''} für ${nm(art)} am ${parseInt(tag.split('-')[2],10)}. eingetragen — bitte Zusage/Freigabe einholen.`);
+  einspringen();
+}
+/* Aus einer Zelle die Vorschläge für diesen Tag öffnen */
+function vorschlagFuerTag(is){
+  document.getElementById('einsTag').value=parseInt(is.split('-')[2],10);
+  const box=document.getElementById('einsErg'); const panel=box?box.closest('.panel'):null;
+  if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
+  einspringen();
 }
 
 /* Datei / CSV / Beispiel / leeren */
