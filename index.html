@@ -8,7 +8,7 @@
   :root{
     --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3240;
     --txt:#e6edf3; --dim:#9aa7b5; --accent:#4c8dff;
-    --frei:#3a4452; --krank:#c0392b; --wunsch:#2e9e6b; --urlaub:#1e8a8a;
+    --frei:#3a4452; --krank:#c0392b; --wunsch:#2e9e6b; --urlaub:#1e8a8a; --feier:#e23b3b;
     --gesetz:#e5484d; --fairness:#d9a441; --hinweis:#5b86b8; --ok:#2e9e6b; --warn:#d9a441;
   }
   *{box-sizing:border-box}
@@ -38,6 +38,8 @@
   .c-FREI{background:var(--frei);color:var(--dim)} .c-KRANK{background:var(--krank)}
   td.reqWunsch{outline:2px solid var(--wunsch);outline-offset:-2px}
   td.reqUrlaub{outline:2px solid var(--urlaub);outline-offset:-2px}
+  th.feier{background:var(--feier);color:#fff}
+  td.feier{box-shadow:inset 0 3px 0 0 var(--feier)}
   .grid th:first-child,.grid td:first-child{position:sticky;left:0;z-index:2;background:var(--panel2)}
   .tabscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--dim);font-size:12px;margin-top:10px}
@@ -62,6 +64,9 @@
   .modalbox{max-width:840px;margin:16px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px}
   .modalbox h3{margin:0 0 4px;font-size:20px} .modalbox h4{margin:18px 0 6px;color:var(--accent);font-size:15px}
   .modalbox p,.modalbox li{font-size:14px;line-height:1.5} .modalbox ul{margin:6px 0 6px 18px;padding:0}
+  .modalbox table.bericht{border-collapse:collapse;width:100%;margin-top:8px}
+  .modalbox table.bericht td{padding:7px 10px;border-bottom:1px solid var(--line);font-size:14px}
+  .modalbox table.bericht td:first-child{color:var(--dim);width:140px;white-space:nowrap}
   .modalbox .zu{float:right;cursor:pointer;color:var(--dim);font-size:24px;line-height:1;border:1px solid var(--line);border-radius:6px;padding:0 9px}
   .modalbox code{background:#0a0d12;padding:1px 5px;border-radius:4px}
   .assistgrp{border-top:1px solid var(--line);padding:12px 0} .assistgrp b{display:block;margin-bottom:6px}
@@ -70,8 +75,33 @@
   #zellMenu .zmItem{padding:8px 13px;cursor:pointer;font-size:14px;border-radius:5px;white-space:nowrap;color:var(--txt)}
   #zellMenu .zmItem:hover{background:var(--accent);color:#fff}
   #zellMenu .zmItem.akt{outline:1px solid var(--accent);font-weight:600}
+  #zellMenu .zmSec{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;padding:7px 10px 3px;border-top:1px solid var(--line);margin-top:3px}
+  #zellMenu .zmSec:first-child{border-top:none;margin-top:0}
+  .patbadge{font-size:8px;color:#fff;padding:0 2px;border-radius:2px;margin-left:1px;vertical-align:super}
   #druckbereich{display:none}
-  @media print{ body>header,body>main,#modal,#zellMenu{display:none !important;} #druckbereich{display:block !important;color:#000} #druckbereich table{border-collapse:collapse;width:100%} #druckbereich th,#druckbereich td{border:1px solid #333;padding:3px 5px;font-size:10px;text-align:center} #druckbereich td.nm{text-align:left;white-space:nowrap;font-weight:600} }
+  @media print{
+    body>header,body>main,#modal,#zellMenu{display:none !important;}
+    html,body{background:#fff !important}
+    #druckbereich{display:block !important;color:#000;background:#fff;font-family:-apple-system,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #druckbereich td{background:#fff}
+    #druckbereich .druckkopf{margin-bottom:8px;border-bottom:2px solid #333;padding-bottom:6px}
+    #druckbereich h2{margin:0;font-size:18px}
+    #druckbereich .dsub{font-size:10px;color:#555;margin-top:3px}
+    #druckbereich h3.dsec{font-size:12px;margin:16px 0 4px}
+    #druckbereich table{border-collapse:collapse;width:100%;margin-top:4px}
+    #druckbereich th,#druckbereich td{border:1px solid #aaa;padding:2px 3px;font-size:9px;text-align:center;color:#000}
+    #druckbereich td.nm,#druckbereich th.nm{text-align:left;white-space:nowrap;font-weight:600;min-width:90px}
+    #druckbereich th{background:#ececec;font-weight:700}
+    #druckbereich th.wt{font-weight:400;font-size:8px;color:#555;background:#f5f5f5}
+    #druckbereich td.we,#druckbereich th.we{background:#e6e6e6}
+    #druckbereich th.feier,#druckbereich td.feier{background:#f3c0c0 !important}
+    #druckbereich td.luecke{background:#f3c0c0;font-weight:700}
+    #druckbereich table.dplan tbody td{font-weight:700}
+    #druckbereich .dleg{font-size:8px;color:#333;margin-top:6px}
+    #druckbereich .dsign{display:flex;justify-content:space-between;font-size:10px;margin-top:24px}
+    #druckbereich .dfoot{font-size:8px;color:#777;margin-top:12px;text-align:center}
+    @page{size:landscape;margin:10mm}
+  }
 </style>
 </head>
 <body>
@@ -98,6 +128,7 @@
   <div class="panel">
     <div class="row" style="gap:14px">
       <label class="ctl">Monat <input type="month" id="monat"></label>
+      <label class="ctl" title="Feiertage werden rot markiert — je Bundesland (regionale Ausnahmen möglich)">Bundesland <select id="bundesland"></select></label>
       <label class="ctl">Ruhezeit-Min. (h)
         <input type="number" id="ruhe" step="0.25" min="0" style="width:80px" list="ruheListe" title="frei einstellbar — 11 Gesetz, 10/9,25 Pflege-Tarif">
         <datalist id="ruheListe"><option value="11">Gesetz</option><option value="10">Pflege-Tarif</option><option value="9.25">Dienstvereinbarung</option></datalist></label>
@@ -129,24 +160,43 @@
 
   <div class="panel">
     <h2>1 · Team</h2>
-    <p class="hint">Vertrag, Qualifikationen usw. sind <b>frei eingebbar</b> (Vorschläge erscheinen, eigener Text ist möglich). Qualifikationen als Liste, z. B. <code>examiniert, Intensiv</code>. Wunschfrei/Urlaub als Tagesnummern <b>des gewählten Monats</b>, z. B. <code>8, 15</code> (werden als volle Datumswerte gespeichert).</p>
+    <p class="hint">Vertrag, Qualifikationen usw. sind <b>frei eingebbar</b> (Vorschläge erscheinen, eigener Text ist möglich). Qualifikationen als Liste, z. B. <code>examiniert, Intensiv</code>. Wunschfrei/Urlaub als Tagesnummern <b>des gewählten Monats</b>, z. B. <code>8, 15</code> (werden als volle Datumswerte gespeichert). <b>Urlaub/Jahr</b> = Jahresanspruch (Tage); <b>Rest</b> wird automatisch aus allen eingetragenen Urlaubstagen des Jahres (Liste + Raster) berechnet.</p>
     <datalist id="vertragListe"><option>Vollzeit</option><option>Teilzeit</option><option>Minijob</option><option>Geteilt</option></datalist>
     <div class="tabscroll"><table class="teamtab"><thead><tr>
       <th style="width:130px">Name</th><th style="width:110px">Vertrag</th><th style="width:80px">Soll-h</th>
-      <th style="width:60px">Springer</th><th>Qualifikationen</th><th style="width:95px">Wunschfrei</th><th style="width:95px">Urlaub</th><th style="width:40px"></th>
+      <th style="width:60px">Springer</th><th>Qualifikationen</th><th style="width:95px">Wunschfrei</th><th style="width:95px">Urlaub</th><th style="width:120px">Urlaub/Jahr · Rest</th><th style="width:40px"></th>
     </tr></thead><tbody id="teamBody"></tbody></table></div>
     <div style="margin-top:10px"><button onclick="teamZeile()">+ Mitarbeiter</button></div>
   </div>
 
   <div class="panel">
+    <h2>1b · Patienten / Klienten <span class="mini">(optional — für 1:1-Versorgung)</span></h2>
+    <p class="hint">Nur nötig, wenn ihr <b>pro Patient</b> plant (z. B. Intensiv/Heimbeatmung). Patienten anlegen → im Raster kannst du dann jeder Schicht einen Patienten zuordnen → unten erscheint die <b>Deckungs-Ansicht je Patient</b> (rot = keine Besetzung an dem Tag). Ohne Patienten bleibt alles mitarbeiter-zentriert. <b>Nur erfundene Namen!</b></p>
+    <div class="tabscroll"><table class="teamtab"><thead><tr><th style="text-align:left">Patient / Klient</th><th style="width:70px">Farbe</th><th style="width:40px"></th></tr></thead><tbody id="patBody"></tbody></table></div>
+    <div style="margin-top:10px"><button onclick="patZeile()">+ Patient / Klient</button></div>
+  </div>
+
+  <div class="panel">
     <h2>2 · Dienstplan</h2>
-    <p class="hint">In eine Zelle klicken → <b>beliebige Schicht direkt auswählen</b> (alle Schichtarten, Frei, Krank, leer). Alles manuell änderbar.</p>
+    <p class="hint">In eine Zelle klicken → <b>beliebige Schicht direkt auswählen</b> (alle Schichtarten, Frei, Krank, Urlaub, Wunschfrei, leer). Alles manuell änderbar. <b>Feiertage</b> (nach Bundesland) sind <b style="color:var(--feier)">rot</b> markiert.</p>
     <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
     <div class="legend" id="legend"></div>
     <div class="row" style="margin-top:12px">
       <button onclick="druckDienstplan()">🖨️ Dienstplan drucken</button>
       <button onclick="teileDienstplan()">📤 An Mitarbeiter senden / teilen</button>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>🩺 Patienten-Deckung <span class="mini">(besetzte Stunden je Patient/Tag)</span></h2>
+    <p class="hint">Nur sichtbar, wenn Patienten angelegt sind. Zeigt pro Patient &amp; Tag die <b>zugeordneten Dienst-Stunden</b>. <b style="color:var(--krank)">Rot = keine Besetzung</b> (Lücke) — bei 1:1-Intensivpflege sofort erkennbar. Die Stundenzahl hilft zu sehen, ob 24 h erreicht sind.</p>
+    <div id="deckung"></div>
+  </div>
+
+  <div class="panel">
+    <h2>📊 Stunden-Konto (Plus-/Minus-Stunden)</h2>
+    <p class="hint">Je Person: <b>Übertrag</b> (± aus dem Vormonat, von Hand eintragbar), <b>Soll</b>, <b>geplante Ist-Stunden</b> (aus dem Raster), <b>Monats-Differenz</b> und <b>Saldo</b> (= Übertrag + Differenz). <span style="color:var(--wunsch)">Grün = Plus</span>, <span style="color:var(--krank)">rot = Minus</span>. Gleiche Logik wie in IHM (Übertrag/Soll/Ist/±) — berechnet aus eurem geplanten Dienstplan.</p>
+    <div id="stundenkonto"></div>
   </div>
 
   <div class="panel">
@@ -164,7 +214,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-G</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-L</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -178,8 +228,8 @@
    - Eingabe-Validierung der Grenzwerte (keine negativen/leeren Werte).
    ======================================================================= */
 const SPEICHER = "dienstplan-waechter-v3";
-const FEST = {FREI:{name:"Frei",kuerzel:"–"}, KRANK:{name:"Krank",kuerzel:"K"}};
-const ABWESEND = new Set(["FREI","KRANK"]);
+const FEST = {FREI:{name:"Frei",kuerzel:"–"}, KRANK:{name:"Krank",kuerzel:"K"}, URLAUB:{name:"Urlaub",kuerzel:"Url"}, WUNSCHFREI:{name:"Wunschfrei",kuerzel:"WF"}};
+const ABWESEND = new Set(["FREI","KRANK","URLAUB","WUNSCHFREI"]);
 const V_NAME = {VOLLZEIT:"Vollzeit",TEILZEIT:"Teilzeit",MINIJOB:"Minijob",GETEILT:"Geteilt"};
 function uid(){ try{ return crypto.randomUUID(); }catch(e){ return 'id'+Date.now()+Math.random().toString(16).slice(2); } }
 
@@ -193,8 +243,8 @@ function stdEinstellungen(){ return {
   dienstdauer:{an:true,maxH:10}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
   folge:{an:false,maxFolge:6}, mindestbesetzung:{an:false}
 };}
-function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[]}; }
-let state = {monat:[2026,11], min_ruhe_h:11, schichtarten:standardSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}};
+function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
+let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:standardSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
 
 /* ---------- Helfer ---------- */
 function def(id){ return state.schichtarten.find(s=>s.id===id); }
@@ -210,6 +260,35 @@ function esc(x){ return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function tageImMonat(j,m){ return new Date(j, m, 0).getDate(); }
 function istWE(j,m,d){ const t=new Date(j,m-1,d).getDay(); return t===0||t===6; }
 function iso(j,m,d){ return `${j}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+/* Gesetzliche Feiertage je Bundesland (regionale Ausnahmen wie Mariae Himmelfahrt/Fronleichnam moeglich) */
+const BUNDESLAENDER=[["BW","Baden-Württemberg"],["BY","Bayern"],["BE","Berlin"],["BB","Brandenburg"],["HB","Bremen"],["HH","Hamburg"],["HE","Hessen"],["MV","Mecklenburg-Vorpommern"],["NI","Niedersachsen"],["NW","Nordrhein-Westfalen"],["RP","Rheinland-Pfalz"],["SL","Saarland"],["SN","Sachsen"],["ST","Sachsen-Anhalt"],["SH","Schleswig-Holstein"],["TH","Thüringen"]];
+function osterSonntag(y){ const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,mo=Math.floor((a+11*h+22*l)/451),mon=Math.floor((h+l-7*mo+114)/31),day=((h+l-7*mo+114)%31)+1; return new Date(y,mon-1,day); }
+function plusTage(dt,n){ const d=new Date(dt.getTime()); d.setDate(d.getDate()+n); return d; }
+function feiertageJahr(y){
+  const o=osterSonntag(y), md=(dt)=>[dt.getMonth()+1,dt.getDate()], ALL='BW BY BE BB HB HH HE MV NI NW RP SL SN ST SH TH';
+  let bbt=new Date(y,10,22); while(bbt.getDay()!==3) bbt.setDate(bbt.getDate()-1);
+  return [
+    [1,1,'Neujahr',ALL],
+    [1,6,'Heilige Drei Könige','BW BY ST'],
+    [3,8,'Internationaler Frauentag','BE MV'],
+    [...md(plusTage(o,-2)),'Karfreitag',ALL],
+    [...md(plusTage(o,1)),'Ostermontag',ALL],
+    [5,1,'Tag der Arbeit',ALL],
+    [...md(plusTage(o,39)),'Christi Himmelfahrt',ALL],
+    [...md(plusTage(o,50)),'Pfingstmontag',ALL],
+    [...md(plusTage(o,60)),'Fronleichnam','BW BY HE NW RP SL'],
+    [8,15,'Mariä Himmelfahrt (regional)','BY SL'],
+    [9,20,'Weltkindertag','TH'],
+    [10,3,'Tag der Deutschen Einheit',ALL],
+    [10,31,'Reformationstag','BB HB HH MV NI SN ST SH TH'],
+    [11,1,'Allerheiligen','BW BY NW RP SL'],
+    [bbt.getMonth()+1,bbt.getDate(),'Buß- und Bettag','SN'],
+    [12,25,'1. Weihnachtstag',ALL],
+    [12,26,'2. Weihnachtstag',ALL],
+  ];
+}
+function feiertageImMonat(j,m,bl){ const set={}; for(const [mm,dd,name,laender] of feiertageJahr(j)){ if(mm===m && laender.split(' ').includes(bl)) set[dd]=name; } return set; }
+function blName(bl){ const f=BUNDESLAENDER.find(x=>x[0]===bl); return f?f[1]:bl; }
 function teile(s){ return s.split('-').map(Number); }
 function hhmm(s){ const p=(s||"0:0").split(':').map(Number); return [p[0]||0, p[1]||0]; }
 function sStart(isoStr,id){ const [y,m,d]=teile(isoStr); const [h,mi]=hhmm(def(id).start); return new Date(y,m-1,d,h,mi); }
@@ -337,9 +416,21 @@ function deaktivierteKern(){
   const e=state.einstellungen, map={qualifikation:'Qualifikation',wunschfrei:'Wunschfrei',ruhetage:'Ruhetage nach Nacht',dienstdauer:'Max. Dienstdauer',nachtfair:'Nacht-Fairness',stunden:'Soll-Stunden'};
   return Object.keys(map).filter(k=>!e[k].an).map(k=>map[k]);
 }
+/* Urlaubskonto: gezählt werden Urlaubstage des gewählten Jahres aus Team-Liste UND Rasterzellen (URLAUB) */
+function urlaubGenommen(m){ const jahr=state.monat[0], tage=new Set();
+  for(const d of (m.urlaub||[])) if(+String(d).slice(0,4)===jahr) tage.add(d);
+  const p=state.plan[m.id]||{}; for(const k in p){ if(p[k]==='URLAUB' && +String(k).slice(0,4)===jahr) tage.add(k); }
+  return tage.size;
+}
+function urlaubAnspruchVon(m){ return (m.urlaubAnspruch==null)?30:(+m.urlaubAnspruch||0); }
+function urlaubRest(m){ return urlaubAnspruchVon(m)-urlaubGenommen(m); }
+function pruefeUrlaubskonto(){ const out=[]; for(const m of state.team){ if(!m.name) continue; const rest=urlaubRest(m);
+  if(rest<0) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:null,text:`Urlaubskonto: ${urlaubGenommen(m)} Urlaubstage im Jahr ${state.monat[0]} eingetragen, Anspruch ${urlaubAnspruchVon(m)} — ${-rest} Tag(e) über dem Rest.`}); }
+  return out;
+}
 function pruefeAlles(){
   const e=state.einstellungen||stdEinstellungen(), r=state.min_ruhe_h;
-  let v=[...pruefeWunschUrlaub(e.wunschfrei.an), ...pruefeRuhezeit(r)];
+  let v=[...pruefeWunschUrlaub(e.wunschfrei.an), ...pruefeRuhezeit(r), ...pruefeUrlaubskonto()];
   if(e.qualifikation.an) v.push(...pruefeQualifikation());
   if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
   if(e.stunden.an) v.push(...pruefeStunden(e.stunden.toleranz));
@@ -389,6 +480,8 @@ function werKannEinspringen(tag, art){
     const heute=(state.plan[m.id]||{})[tag];
     if(istArbeit(heute)){ abgelehnt.push(`⛔ ${m.name}: arbeitet an dem Tag schon (${nm(heute)}).`); continue; }
     if(heute==="KRANK"){ abgelehnt.push(`⛔ ${m.name}: krank gemeldet.`); continue; }
+    if(heute==="URLAUB"){ abgelehnt.push(`⛔ ${m.name}: Urlaub (im Plan eingetragen).`); continue; }
+    if(heute==="WUNSCHFREI"){ abgelehnt.push(`⛔ ${m.name}: Wunschfrei (im Plan eingetragen).`); continue; }
     if((m.urlaub||[]).includes(tag)){ abgelehnt.push(`⛔ ${m.name}: Urlaub.`); continue; }
     if((m.wunschfrei||[]).includes(tag)){ abgelehnt.push(`⛔ ${m.name}: hat an dem Tag Wunschfrei.`); continue; }
     if(d.qual && !quals(m).includes(d.qual.toLowerCase())){ abgelehnt.push(`⛔ ${m.name}: Qualifikation „${d.qual}" fehlt.`); continue; }
@@ -415,6 +508,7 @@ function normalisieren(s){
   let jy=Array.isArray(s.monat)?s.monat[0]:null, jm=Array.isArray(s.monat)?s.monat[1]:null;
   if(!Number.isInteger(jy) || !Number.isInteger(jm) || jm<1 || jm>12){ const h=new Date(); s.monat=[h.getFullYear(),h.getMonth()+1]; }
   const mr=+s.min_ruhe_h; s.min_ruhe_h = (Number.isFinite(mr) && mr>=0) ? mr : 11;
+  s.bundesland = (typeof s.bundesland==='string' && BUNDESLAENDER.some(x=>x[0]===s.bundesland)) ? s.bundesland : 'BY';
   s.schichtarten = (Array.isArray(s.schichtarten) && s.schichtarten.length) ? s.schichtarten : standardSchichtarten();
   s.schichtarten.forEach(x=>{ if(x.minBesetzung==null) x.minBesetzung=0; if(!x.id) x.id=uid(); });  // NUR fehlende IDs ergänzen, Duplikate NICHT stillschweigend umbenennen
   // Einstellungen tief zusammenführen, damit unvollständige Unterobjekte keine Standardfelder verdrängen
@@ -423,8 +517,10 @@ function normalisieren(s){
   s.einstellungen=de;
   const vMap={VOLLZEIT:'Vollzeit',TEILZEIT:'Teilzeit',MINIJOB:'Minijob',GETEILT:'Geteilt'};
   s.team = (Array.isArray(s.team)?s.team:[]).map(m=>{ const id=m.id||uid();
-    return {id, name:m.name||"", vertrag:(vMap[m.vertrag]||m.vertrag||"Vollzeit"), soll_stunden:+m.soll_stunden||0, springer:!!m.springer, qualifikationen:Array.isArray(m.qualifikationen)?m.qualifikationen:[], wunschfrei:Array.isArray(m.wunschfrei)?m.wunschfrei:[], urlaub:Array.isArray(m.urlaub)?m.urlaub:[]}; });
+    return {id, name:m.name||"", vertrag:(vMap[m.vertrag]||m.vertrag||"Vollzeit"), soll_stunden:+m.soll_stunden||0, springer:!!m.springer, qualifikationen:Array.isArray(m.qualifikationen)?m.qualifikationen:[], wunschfrei:Array.isArray(m.wunschfrei)?m.wunschfrei:[], urlaub:Array.isArray(m.urlaub)?m.urlaub:[], urlaubAnspruch:(m.urlaubAnspruch==null?30:(+m.urlaubAnspruch||0)), uebertrag:(Number.isFinite(+m.uebertrag)?+m.uebertrag:0)}; });
   s.plan = (s.plan && typeof s.plan==='object') ? s.plan : {};
+  s.patienten = Array.isArray(s.patienten) ? s.patienten.map(p=>({id:p.id||uid(), name:p.name||'', farbe:p.farbe||'#e08a1e'})) : [];
+  s.zuordnung = (s.zuordnung && typeof s.zuordnung==='object') ? s.zuordnung : {};
   if(s.team.length===0) s.team.push(neuerMitarbeiter());
   return s;
 }
@@ -440,8 +536,9 @@ function doppelteIds(o){
 // Oberfläche aus dem aktuellen state aufbauen
 function aufbauen(){
   document.getElementById("monat").value=state.monat[0]+"-"+String(state.monat[1]).padStart(2,"0");
+  const bs=document.getElementById("bundesland"); if(bs){ bs.innerHTML=BUNDESLAENDER.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join(''); bs.value=state.bundesland||'BY'; }
   document.getElementById("ruhe").value=String(state.min_ruhe_h||11);
-  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderEinsArt(); renderGrid(); renderLegend();
+  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderPatienten(); renderEinsArt(); renderGrid(); renderLegend();
   letzteGeprueft=false;
 }
 // nur beim Programmstart: Browserstand lesen
@@ -450,7 +547,8 @@ function init(){
   normalisieren(); aufbauen();
   setStatus(state.team.some(t=>t.name)?"geladen":"neu — bitte eintragen");
 }
-document.getElementById("monat").addEventListener("change", e=>{ state.monat=e.target.value.split("-").map(Number); renderTeam(); renderGrid(); speichernLokal(); });
+document.getElementById("monat").addEventListener("change", e=>{ state.monat=e.target.value.split("-").map(Number); renderTeam(); renderGrid(); renderLegend(); speichernLokal(); });
+document.getElementById("bundesland").addEventListener("change", e=>{ state.bundesland=e.target.value; renderGrid(); renderLegend(); speichernLokal(); });
 document.getElementById("ruhe").addEventListener("change", e=>{ const v=valNum(e.target,0,state.min_ruhe_h); if(v==null)return; state.min_ruhe_h=v; speichernLokal(); });
 
 /* Schichtarten */
@@ -483,6 +581,66 @@ function renderSchichtarten(){
   });
 }
 
+/* Patienten / Klienten + Deckungs-Ansicht (optional, für 1:1-Versorgung) */
+const patFarbePalette=['#e08a1e','#1e8ae0','#8a1ee0','#1ec07a','#e01e8a','#8ac01e','#e0c01e','#1ec0e0'];
+function patDef(id){ return state.patienten.find(p=>p.id===id); }
+function renderPatienten(){
+  const tb=document.getElementById('patBody'); if(!tb) return; tb.innerHTML='';
+  state.patienten.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="text-align:left"><input value="${esc(p.name)}" placeholder="z. B. Patient A"></td>
+      <td><input type="color" value="${p.farbe||'#e08a1e'}"></td>
+      <td><button onclick="patLoeschen('${p.id}')">✕</button></td>`;
+    const [nmI,faI]=tr.querySelectorAll('input');
+    nmI.oninput=e=>{ p.name=e.target.value; renderGrid(); speichernLokal(); };
+    faI.oninput=e=>{ p.farbe=e.target.value; renderGrid(); speichernLokal(); };
+    tb.appendChild(tr);
+  });
+}
+function patZeile(){ state.patienten.push({id:uid(), name:'', farbe:patFarbePalette[state.patienten.length % patFarbePalette.length]}); renderPatienten(); renderGrid(); speichernLokal(); }
+function patLoeschen(id){ state.patienten=state.patienten.filter(p=>p.id!==id); for(const mid in state.zuordnung){ for(const k in state.zuordnung[mid]){ if(state.zuordnung[mid][k]===id) delete state.zuordnung[mid][k]; } } renderPatienten(); renderGrid(); speichernLokal(); }
+function setPatientZelle(id,is,pid){ state.zuordnung[id]=state.zuordnung[id]||{}; if(pid) state.zuordnung[id][is]=pid; else delete state.zuordnung[id][is]; renderGrid(); speichernLokal(); }
+function stundenFuerPatientTag(pid,is){ let h=0; for(const mm of state.team){ const art=(state.plan[mm.id]||{})[is], zp=(state.zuordnung[mm.id]||{})[is]; if(zp===pid && istArbeit(art)) h+=dauer(art); } return h; }
+function renderDeckung(){
+  const box=document.getElementById('deckung'); if(!box) return;
+  const pats=state.patienten.filter(p=>p.name);
+  if(!pats.length){ box.innerHTML='<span class="mini">Noch keine Patienten/Klienten angelegt — die Patienten-Planung ist optional (siehe „1b").</span>'; return; }
+  const [j,m]=state.monat, tage=tageImMonat(j,m), fei=feiertageImMonat(j,m,state.bundesland||'BY');
+  let h='<div class="tabscroll"><table class="grid"><thead><tr><th style="text-align:left;min-width:120px">Patient / Klient</th>';
+  for(let d=1; d<=tage; d++) h+=`<th class="${istWE(j,m,d)?'we':''} ${fei[d]?'feier':''}">${d}</th>`;
+  h+='</tr></thead><tbody>';
+  for(const p of pats){
+    h+=`<tr><td style="text-align:left"><span class="chip" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.farbe||'#888'};margin-right:5px"></span>${esc(p.name)}</td>`;
+    for(let d=1; d<=tage; d++){ const is=iso(j,m,d), st=stundenFuerPatientTag(p.id,is);
+      const col = st===0 ? 'var(--krank)' : (st>=24 ? 'var(--wunsch)' : '#b8860b');
+      h+=`<td class="${istWE(j,m,d)?'we':''} ${fei[d]?'feier':''}" style="background:${col};color:#fff;font-weight:700" title="${st} h besetzt">${st||'–'}</td>`;
+    }
+    h+='</tr>';
+  }
+  box.innerHTML=h+'</tbody></table></div>';
+}
+/* Stunden-Konto: Übertrag + Soll + geplante Ist-Stunden + Differenz + Saldo (wie IHM) */
+function fmtStd(x){ const r=Math.round(x*100)/100; return Number.isInteger(r)?String(r):r.toFixed(2); }
+function fmtSaldo(x){ const r=Math.round(x*100)/100; return (r>=0?'+':'')+(Number.isInteger(r)?String(r):r.toFixed(2)); }
+function renderStundenkonto(){
+  const box=document.getElementById('stundenkonto'); if(!box) return;
+  const aktive=state.team.filter(m=>m.name);
+  if(!aktive.length){ box.innerHTML='<span class="mini">Noch keine Mitarbeiter eingetragen.</span>'; return; }
+  let h='<div class="tabscroll"><table class="teamtab"><thead><tr><th style="text-align:left;min-width:120px">Mitarbeiter</th><th style="width:110px">Übertrag (±h)</th><th style="width:70px">Soll h</th><th style="width:90px">Ist (geplant)</th><th style="width:80px">Monat +/-</th><th style="width:80px">Saldo</th></tr></thead><tbody>';
+  for(const m of aktive){
+    const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id), diff=ist-soll, ueb=(+m.uebertrag||0), saldo=ueb+diff;
+    const cD=diff<0?'var(--krank)':(diff>0?'var(--wunsch)':'var(--dim)');
+    const cS=saldo<0?'var(--krank)':(saldo>0?'var(--wunsch)':'var(--dim)');
+    h+=`<tr data-id="${m.id}"><td style="text-align:left">${esc(m.name)}</td>`+
+       `<td><input type="number" step="0.25" value="${ueb}" style="width:80px" class="uebI" title="Plus-/Minus-Stunden aus dem Vormonat (± erlaubt)"></td>`+
+       `<td>${fmtStd(soll)}</td><td>${fmtStd(ist)}</td>`+
+       `<td style="color:${cD};font-weight:600">${fmtSaldo(diff)}</td>`+
+       `<td style="color:${cS};font-weight:700">${fmtSaldo(saldo)}</td></tr>`;
+  }
+  box.innerHTML=h+'</tbody></table></div>';
+  box.querySelectorAll('tr[data-id]').forEach(tr=>{ const m=state.team.find(x=>x.id===tr.dataset.id); const inp=tr.querySelector('.uebI');
+    if(inp) inp.onchange=e=>{ const v=parseFloat(e.target.value); m.uebertrag=isFinite(v)?v:0; renderStundenkonto(); speichernLokal(); }; });
+}
 /* Einstellungen (mit Werte-Validierung) */
 function estTog(k,label){ const a=state.einstellungen[k].an; return `<label class="ctl" style="flex:1;min-width:200px"><input type="checkbox" data-tog="${k}" ${a?'checked':''} style="width:auto"> ${label}</label>`; }
 function estNum(k,f,label,min){ const val=state.einstellungen[k][f]; return `<label class="ctl">${label} <input type="number" data-num="${k}.${f}" data-min="${min}" value="${val}" style="width:70px" step="0.5" min="${min}"></label>`; }
@@ -525,36 +683,41 @@ function renderTeam(){
       <td><input value="${esc((m.qualifikationen||[]).join(', '))}" placeholder="examiniert, Intensiv"></td>
       <td><input value="${esc(tageImFeld(m,'wunschfrei'))}" placeholder="8, 15"></td>
       <td><input value="${esc(tageImFeld(m,'urlaub'))}" placeholder="5, 6"></td>
+      <td><input type="number" min="0" value="${urlaubAnspruchVon(m)}" style="width:50px" title="Urlaubsanspruch pro Jahr (Tage)"> <span style="font-size:12px;font-weight:600;color:${urlaubRest(m)<0?'var(--krank)':'var(--dim)'}">Rest ${urlaubRest(m)}</span></td>
       <td><button onclick="teamLoeschen('${m.id}')">✕</button></td>`;
-    const [nmI,ver,soll,spr,qu,wf,ur]=tr.querySelectorAll("input,select");
+    const [nmI,ver,soll,spr,qu,wf,ur,ua]=tr.querySelectorAll("input,select");
     nmI.oninput=e=>{ m.name=e.target.value; renderGrid(); speichernLokal(); };
     ver.onchange=e=>{ m.vertrag=e.target.value; speichernLokal(); };
-    soll.onchange=e=>{ const v=valNum(e.target,0,m.soll_stunden); if(v==null)return; m.soll_stunden=v; speichernLokal(); };
+    soll.onchange=e=>{ const v=valNum(e.target,0,m.soll_stunden); if(v==null)return; m.soll_stunden=v; renderStundenkonto(); speichernLokal(); };
     spr.onchange=e=>{ m.springer=e.target.checked; renderGridNamen(); speichernLokal(); };
     qu.oninput=e=>{ m.qualifikationen=liste(e.target.value); speichernLokal(); };
     wf.oninput=e=>{ setTageImFeld(m,'wunschfrei',e.target.value); renderGrid(); speichernLokal(); };
     ur.oninput=e=>{ setTageImFeld(m,'urlaub',e.target.value); renderGrid(); speichernLokal(); };
+    ur.onchange=()=>renderTeam();
+    ua.onchange=e=>{ const v=valNum(e.target,0,urlaubAnspruchVon(m)); if(v==null)return; m.urlaubAnspruch=v; renderTeam(); speichernLokal(); };
     tb.appendChild(tr);
   });
 }
 
 /* Grid */
 function zyklus(){ return ["", ...state.schichtarten.map(s=>s.id), "FREI", "KRANK"]; }
-function zellFarbe(id){ const d=def(id); if(d) return d.farbe; if(id==="FREI") return "var(--frei)"; if(id==="KRANK") return "var(--krank)"; return ""; }
+function zellFarbe(id){ const d=def(id); if(d) return d.farbe; if(id==="FREI") return "var(--frei)"; if(id==="KRANK") return "var(--krank)"; if(id==="URLAUB") return "var(--urlaub)"; if(id==="WUNSCHFREI") return "var(--wunsch)"; return ""; }
 function renderEinsArt(){ document.getElementById("einsArt").innerHTML=state.schichtarten.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(""); }
 function renderLegend(){
   const l=document.getElementById("legend");
   let h=state.schichtarten.map(s=>`<span><i class="chip" style="background:${s.farbe}"></i>${esc(s.name)}</span>`).join("");
   h+=`<span><i class="chip" style="background:var(--frei)"></i>Frei</span><span><i class="chip" style="background:var(--krank)"></i>Krank</span>`;
   h+=`<span><i class="chip" style="outline:2px solid var(--wunsch);background:transparent"></i>Wunschfrei</span><span><i class="chip" style="outline:2px solid var(--urlaub);background:transparent"></i>Urlaub</span>`;
+  h+=`<span><i class="chip" style="background:var(--feier)"></i>Feiertag (${esc(blName(state.bundesland||'BY'))})</span>`;
   l.innerHTML=h;
 }
 function renderGridNamen(){ document.querySelectorAll('#gridBody tr').forEach(tr=>{ const id=tr.dataset.id; const m=state.team.find(x=>x.id===id); if(m) tr.querySelector('td').innerHTML=`${esc(m.name)}${m.springer?' <span class="badge SPR">Springer</span>':''}`; }); }
 function renderGrid(){
   const [j,m]=state.monat, tage=tageImMonat(j,m);
+  const fei=feiertageImMonat(j,m,state.bundesland||'BY');
   const head=document.getElementById("gridHead"), body=document.getElementById("gridBody");
   let h="<tr><th style='text-align:left;min-width:120px'>Mitarbeiter</th>";
-  for(let d=1; d<=tage; d++) h+=`<th class="${istWE(j,m,d)?'we':''}">${d}</th>`;
+  for(let d=1; d<=tage; d++) h+=`<th class="${istWE(j,m,d)?'we':''} ${fei[d]?'feier':''}" ${fei[d]?`title="${esc(fei[d])}"`:''}>${d}</th>`;
   head.innerHTML=h+"</tr>"; body.innerHTML="";
   state.team.forEach(mitar=>{
     if(!mitar.name) return;
@@ -566,38 +729,99 @@ function renderGrid(){
       const is=iso(j,m,d); const art=state.plan[mitar.id][is]||"";
       const req=wset.has(is)?"reqWunsch":uset.has(is)?"reqUrlaub":"";
       const bg=art?`style="background:${zellFarbe(art)}"`:"";
-      row+=`<td class="cell ${istWE(j,m,d)?'we':''} ${req}" ${bg} data-id="${mitar.id}" data-iso="${is}">${kuerzel(art)}</td>`;
+      const pid=(state.zuordnung[mitar.id]||{})[is]||""; const pd=(pid&&istArbeit(art))?patDef(pid):null;
+      const badge=pd?`<span class="patbadge" style="background:${pd.farbe||'#888'}" title="${esc(pd.name)}">${esc((pd.name||'?').trim().slice(0,1).toUpperCase())}</span>`:"";
+      row+=`<td class="cell ${istWE(j,m,d)?'we':''} ${req} ${fei[d]?'feier':''}" ${fei[d]?`title="${esc(fei[d])}"`:''} ${bg} data-id="${mitar.id}" data-iso="${is}">${kuerzel(art)}${badge}</td>`;
     }
     tr.innerHTML=row; tr.querySelectorAll("td.cell").forEach(td=>td.onclick=(e)=>{ e.stopPropagation(); zelleKlick(td); }); body.appendChild(tr);
   });
+  renderStundenkonto(); renderDeckung();
+}
+const WTAG=['So','Mo','Di','Mi','Do','Fr','Sa'];
+function zeitPlus(hhmm,dauerH){ const [H,M]=String(hhmm||'00:00').split(':').map(Number); let tot=(H*60+(M||0))+Math.round((+dauerH||0)*60); tot=((tot%1440)+1440)%1440; return String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0'); }
+function datumLang(isoStr){ const [y,mo,d]=teile(isoStr); return WTAG[new Date(y,mo-1,d).getDay()]+', '+String(d).padStart(2,'0')+'.'+String(mo).padStart(2,'0')+'.'+y; }
+function arbeitsbericht(id,is){
+  const m=state.team.find(x=>x.id===id), art=(state.plan[id]||{})[is]||'', d=def(art);
+  const pid=(state.zuordnung[id]||{})[is], pd=pid?patDef(pid):null;
+  const chip=(c)=>`<span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:${c};margin-right:5px;vertical-align:-1px"></span>`;
+  let rows=`<tr><td>Datum</td><td><b>${esc(datumLang(is))}</b></td></tr>`;
+  rows+=`<tr><td>Mitarbeiter</td><td><b>${esc(m?m.name:'—')}</b>${m&&m.springer?' · Springer':''}</td></tr>`;
+  if(d){
+    rows+=`<tr><td>Dienst</td><td>${chip(d.farbe)}<b>${esc(d.kuerzel)} · ${esc(d.name)}</b></td></tr>`;
+    rows+=`<tr><td>Anfang – Ende</td><td><b>${esc(d.start||'—')} – ${esc(zeitPlus(d.start,d.dauer))}</b>${d.nacht?' · Nachtdienst':''}</td></tr>`;
+    rows+=`<tr><td>Stunden</td><td><b>${fmtStd(+d.dauer||0)} h</b></td></tr>`;
+    rows+=`<tr><td>Patient / Klient</td><td>${pd?chip(pd.farbe)+'<b>'+esc(pd.name)+'</b>':'<span style="color:var(--dim)">— keiner zugeordnet —</span>'}</td></tr>`;
+    if(d.qual) rows+=`<tr><td>Nötige Quali</td><td>${esc(d.qual)}</td></tr>`;
+  } else {
+    rows+=`<tr><td>Eintrag</td><td><b>${esc(nm(art)||'(leer)')}</b></td></tr>`;
+  }
+  modalOeffnen(`<h3>📋 Arbeitsbericht</h3><table class="bericht">${rows}</table><p class="mini" style="margin-top:10px">Berechnet aus dem Dienstplan (Zeiten aus der Schichtart). Kein externer Datenabgleich.</p>`);
 }
 function zelleKlick(td){
   const id=td.dataset.id, is=td.dataset.iso;
   const menu=document.getElementById('zellMenu');
   const cur=(state.plan[id]&&state.plan[id][is])||'';
-  const opts=[['','(leer)'], ...state.schichtarten.map(s=>[s.id, s.kuerzel+' · '+s.name]), ['FREI','– Frei'], ['KRANK','K Krank']];
-  menu.innerHTML=opts.map(([v,label])=>`<div class="zmItem${v===cur?' akt':''}" data-v="${esc(v)}">${esc(label)}</div>`).join('');
+  const curP=(state.zuordnung[id]&&state.zuordnung[id][is])||'';
+  const opts=[['','(leer)'], ...state.schichtarten.map(s=>[s.id, s.kuerzel+' · '+s.name]), ['FREI','– Frei'], ['KRANK','K Krank'], ['WUNSCHFREI','WF · Wunschfrei'], ['URLAUB','Url · Urlaub']];
+  let html=(istArbeit(cur)?`<div class="zmItem" data-kind="info" style="color:var(--accent);font-weight:600">📋 Arbeitsbericht anzeigen</div>`:'')+'<div class="zmSec">Dienst</div>'+opts.map(([v,label])=>`<div class="zmItem${v===cur?' akt':''}" data-kind="shift" data-v="${esc(v)}">${esc(label)}</div>`).join('');
+  const patAktiv=state.patienten.filter(p=>p.name);
+  if(patAktiv.length){
+    html+='<div class="zmSec">Für Patient / Klient</div>';
+    html+=`<div class="zmItem${curP===''?' akt':''}" data-kind="pat" data-p="">(kein)</div>`;
+    html+=patAktiv.map(p=>`<div class="zmItem${p.id===curP?' akt':''}" data-kind="pat" data-p="${p.id}"><span class="chip" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.farbe||'#888'};margin-right:6px"></span>${esc(p.name)}</div>`).join('');
+  }
+  menu.innerHTML=html;
   const rect=td.getBoundingClientRect();
   menu.style.left=(window.scrollX+rect.left)+'px';
   menu.style.top=(window.scrollY+rect.bottom+2)+'px';
   menu.style.display='block';
-  menu.querySelectorAll('.zmItem').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); setZelle(id,is,el.dataset.v); menu.style.display='none'; });
+  menu.querySelectorAll('.zmItem').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); menu.style.display='none';
+    if(el.dataset.kind==='info'){ arbeitsbericht(id,is); }
+    else if(el.dataset.kind==='pat'){ setPatientZelle(id,is,el.dataset.p); }
+    else { setZelle(id,is,el.dataset.v); } });
 }
-function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; if(v) state.plan[id][is]=v; else delete state.plan[id][is]; renderGrid(); speichernLokal(); }
+function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; if(v) state.plan[id][is]=v; else delete state.plan[id][is];
+  if(!istArbeit(v) && state.zuordnung[id]) delete state.zuordnung[id][is];
+  renderGrid(); renderTeam(); speichernLokal(); }
 document.addEventListener('click', ()=>{ const m=document.getElementById('zellMenu'); if(m && m.style.display==='block') m.style.display='none'; });
 
 /* Dienstplan drucken (ohne Popup — nutzt Druckbereich + @media print) */
+const MONATE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 function druckDienstplan(){
   const [j,m]=state.monat, tage=tageImMonat(j,m);
-  let h=`<h3>Dienstplan ${String(m).padStart(2,'0')}/${j}</h3><table><thead><tr><th>Mitarbeiter</th>`;
-  for(let d=1;d<=tage;d++) h+=`<th>${d}</th>`;
+  const fei=feiertageImMonat(j,m,state.bundesland||'BY');
+  const he=new Date(), erstellt=String(he.getDate()).padStart(2,'0')+'.'+String(he.getMonth()+1).padStart(2,'0')+'.'+he.getFullYear();
+  const clsTag=(d)=>(istWE(j,m,d)?'we ':'')+(fei[d]?'feier':'');
+  let h=`<div class="druckkopf"><h2>Dienstplan — ${MONATE[m-1]} ${j}</h2><div class="dsub">${esc(blName(state.bundesland||'BY'))} · erstellt am ${erstellt} · Dienstplan-Wächter</div></div>`;
+  h+='<table class="dplan"><thead><tr><th class="nm">Mitarbeiter</th>';
+  for(let d=1;d<=tage;d++) h+=`<th class="${clsTag(d)}">${d}</th>`;
+  h+='</tr><tr><th class="nm"></th>';
+  for(let d=1;d<=tage;d++) h+=`<th class="wt ${clsTag(d)}">${['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(j,m-1,d).getDay()]}</th>`;
   h+='</tr></thead><tbody>';
   for(const mi of state.team){ if(!mi.name) continue;
-    h+=`<tr><td class="nm">${esc(mi.name)}</td>`;
-    for(let d=1;d<=tage;d++){ const a=(state.plan[mi.id]||{})[iso(j,m,d)]||''; h+=`<td>${a?esc(kuerzel(a)):''}</td>`; }
+    h+=`<tr><td class="nm">${esc(mi.name)}${mi.springer?' *':''}</td>`;
+    for(let d=1;d<=tage;d++){ const a=(state.plan[mi.id]||{})[iso(j,m,d)]||''; const col=a?zellFarbe(a):'';
+      h+=`<td class="${clsTag(d)}" style="${col?`background:${col};color:#fff;font-weight:700`:''}">${a?esc(kuerzel(a)):''}</td>`; }
     h+='</tr>';
   }
-  h+='</tbody></table><p style="font-size:9px;margin-top:8px">Legende: '+state.schichtarten.map(s=>esc(s.kuerzel+'='+s.name)).join(' · ')+' · –=Frei · K=Krank</p>';
+  h+='</tbody></table>';
+  h+='<p class="dleg">Legende: '+state.schichtarten.map(s=>esc(s.kuerzel+' = '+s.name)).join(' · ')+' · – = Frei · K = Krank · Url = Urlaub · WF = Wunschfrei'+(Object.keys(fei).length?' · rot = Feiertag':'')+' · grau = Wochenende · * = Springer</p>';
+  h+='<h3 class="dsec">Stunden-Konto &amp; Urlaub</h3><table class="dkonto"><thead><tr><th class="nm">Mitarbeiter</th><th>Übertrag</th><th>Soll h</th><th>Ist (geplant)</th><th>+/-</th><th>Saldo</th><th>Urlaub-Rest</th></tr></thead><tbody>';
+  for(const mi of state.team){ if(!mi.name) continue; const soll=+mi.soll_stunden||0, ist=istStundenMonat(mi.id), diff=ist-soll, ueb=+mi.uebertrag||0;
+    h+=`<tr><td class="nm">${esc(mi.name)}</td><td>${fmtSaldo(ueb)}</td><td>${fmtStd(soll)}</td><td>${fmtStd(ist)}</td><td>${fmtSaldo(diff)}</td><td>${fmtSaldo(ueb+diff)}</td><td>${urlaubRest(mi)}</td></tr>`; }
+  h+='</tbody></table>';
+  const pats=state.patienten.filter(p=>p.name);
+  if(pats.length){
+    h+='<h3 class="dsec">Patienten-Deckung (Stunden je Tag)</h3><table class="dplan"><thead><tr><th class="nm">Patient / Klient</th>';
+    for(let d=1;d<=tage;d++) h+=`<th class="${clsTag(d)}">${d}</th>`;
+    h+='</tr></thead><tbody>';
+    for(const p of pats){ h+=`<tr><td class="nm">${esc(p.name)}</td>`;
+      for(let d=1;d<=tage;d++){ const st=stundenFuerPatientTag(p.id,iso(j,m,d)); h+=`<td class="${clsTag(d)}${st===0?' luecke':''}">${st||'–'}</td>`; }
+      h+='</tr>'; }
+    h+='</tbody></table>';
+  }
+  h+='<div class="dsign"><div>Erstellt am: '+erstellt+'</div><div>Freigabe / Unterschrift Leitung: _______________________</div></div>';
+  h+='<p class="dfoot">Dienstplan-Wächter · Hilfe zur Planung, kein Rechtsgutachten · läuft offline, keine Datenübertragung.</p>';
   document.getElementById('druckbereich').innerHTML=h;
   window.print();
 }
@@ -809,7 +1033,7 @@ function handbuch(){
     '<li>Abgeschaltete Prüfungen erscheinen beim Ergebnis als Warnung „unvollständig geprüft".</li></ul>'+
   '<h4>Schichtarten</h4><p>Beliebig viele Dienste. Spalten: <b>Name · Kürzel · Start (HH:MM) · Dauer (h, auch 12/24) · Nacht · nötige Quali · Mind.(qualifizierte Besetzung/Tag) · Farbe</b>. Löschen entfernt auch die zugehörigen Planeinträge.</p>'+
   '<h4>Team</h4><p><b>Name · Vertrag</b> (Vollzeit/Teilzeit/Minijob/Geteilt) <b>· Soll-h</b> (pro Monat) <b>· Springer · Qualifikationen</b> (Liste) <b>· Wunschfrei · Urlaub</b> (Tagesnummern des gewählten Monats, werden als volle Datumswerte gespeichert — verrutschen nicht beim Monatswechsel).</p>'+
-  '<h4>Dienstplan-Raster</h4><p>Zelle anklicken: leer → deine Schichtarten → <b>Frei</b> → <b>Krank</b> → leer. Grüner Rahmen = Wunschfrei, türkis = Urlaub. Die Namensspalte bleibt beim Scrollen stehen.</p>'+
+  '<h4>Dienstplan-Raster</h4><p>Zelle anklicken → Menü mit allen Optionen: leer, deine Schichtarten, <b>Frei</b>, <b>Krank</b>, <b>Wunschfrei</b>, <b>Urlaub</b>. Alles manuell änderbar. Grüner/türkiser Rahmen = Wunschfrei/Urlaub aus dem Team-Bereich (Tageslisten). <b>Feiertage</b> sind je <b>Bundesland</b> (oben einstellbar) <b style="color:var(--feier)">rot</b> markiert — regionale Ausnahmen (z. B. Mariä Himmelfahrt, Fronleichnam) möglich. Die Namensspalte bleibt beim Scrollen stehen.</p>'+
   '<h4>Prüf-Ergebnis</h4><p><b>GESETZ</b> (rot) = rechtlich kritisch · <b>FAIRNESS</b> (gelb) · <b>HINWEIS</b> (blau). Nach jeder Änderung wird ein altes Ergebnis als „veraltet" markiert — bitte neu prüfen.</p>'+
   '<h4>🔍 Vertretung / Krankmeldung</h4><p>Tag + Schicht wählen. Reihenfolge: <b>Springer zuerst</b>, dann geringste Auslastung, dann wenigste Nächte. Geprüft wird dieselbe Gesetzeslogik wie im Plan (Ruhezeit auch über Monatswechsel, Überschneidung langer Dienste, Dienstdauer, Minijob, Quali, Urlaub/Wunschfrei). Wird <b>unter den hinterlegten Daten &amp; geprüften Bedingungen keine geeignete Vertretung</b> gefunden, erscheint <b>Unterdeckung + Eskalation</b> — es wird <b>niemand automatisch</b> eingesetzt. (Das heißt nicht, dass es rechtlich gar keine Option gibt — nur keine nach den aktivierten Prüfungen.)</p>'+
   '<h4>Lange Dienste &amp; Ausnahmesituationen dokumentieren</h4><p>Echter Notfall ohne Alternative (Erkrankung, niemand sonst): Du kannst <b>jeden</b> Dienst — auch 24 h — <b>manuell in den Plan klicken</b>. Das Tool <b>warnt rot, blockiert aber nicht</b>. Bitte Entscheidung &amp; Grund dokumentieren. (Geplanter Einsatz und tatsächlich geleistete Zeit sind verschiedene Dinge; Ausnahmen regelt das ArbZG eigens.)</p>'+
