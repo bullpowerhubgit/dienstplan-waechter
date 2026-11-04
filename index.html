@@ -88,6 +88,10 @@
   #zellMenu .zmSec:first-child{border-top:none;margin-top:0}
   .patbadge{font-size:8px;color:#fff;padding:0 2px;border-radius:2px;margin-left:1px;vertical-align:super}
   .pname:hover{text-decoration:underline;color:var(--accent)}
+  .palette{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+  .pchip{font:inherit;font-size:12px;font-weight:700;padding:5px 9px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);cursor:pointer;line-height:1.2}
+  .pchip .pz{font-weight:400;opacity:.9;font-size:10px;margin-left:3px}
+  .pchip.aktiv{outline:2px solid #fff;outline-offset:1px}
   #druckbereich{display:none}
   @media print{
     body>header,body>main,#modal,#zellMenu{display:none !important;}
@@ -195,6 +199,8 @@
       <button onclick="autoWuerfeln()">🎲 Anderer Vorschlag</button>
     </div>
     <p class="hint" style="margin-top:2px">Füllt <b>leere Pflichtdienste</b> (Schichtarten mit „Mind." ≥ 1) automatisch mit passenden, verfügbaren Personen — respektiert <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit</b> und <b>vorhandene Einträge</b> (überschreibt nichts). <b>Entwurf — bitte prüfen.</b></p>
+    <div class="palette" id="palette"></div>
+    <p class="hint" id="palettestatus" style="margin:0 0 6px">🖌 <b>Schicht-Palette:</b> einen Dienst antippen → dann Zellen antippen, um schnell zu füllen (wie bei IHM). „✖ Pinsel aus" = normales Menü.</p>
     <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
     <div class="legend" id="legend"></div>
     <p class="hint" style="margin-top:12px"><b>Vor dem Drucken:</b> erst prüfen lassen (Gesetz/Fairness), dann drucken oder senden.</p>
@@ -233,7 +239,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-S</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-U</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -257,13 +263,35 @@ function standardSchichtarten(){ return [
   {id:"S", name:"Spät", kuerzel:"S", start:"14:00", dauer:8, nacht:false, qual:"", farbe:"#c77d2a", minBesetzung:0},
   {id:"N", name:"Nacht",kuerzel:"N", start:"22:00", dauer:8, nacht:true,  qual:"", farbe:"#7a4ed9", minBesetzung:0},
 ];}
+/* Vollständige Pflege-/IHM-Schichtliste (Standard) – alle 19 Dienste */
+function pflegeSchichtarten(){ return [
+  {id:'T',  name:'Tag (T)',          kuerzel:'T',  start:'08:00', dauer:12,  nacht:false, qual:'', farbe:'#2d6cdf', minBesetzung:1},
+  {id:'T1', name:'Tag früh (T1)',    kuerzel:'T1', start:'07:00', dauer:12,  nacht:false, qual:'', farbe:'#2f7fd1', minBesetzung:0},
+  {id:'T2', name:'Tag spät (T2)',    kuerzel:'T2', start:'09:00', dauer:12,  nacht:false, qual:'', farbe:'#2f91c7', minBesetzung:0},
+  {id:'N',  name:'Nacht (N)',        kuerzel:'N',  start:'20:00', dauer:12,  nacht:true,  qual:'', farbe:'#7a4ed9', minBesetzung:1},
+  {id:'N1', name:'Nacht (N1)',       kuerzel:'N1', start:'19:00', dauer:12,  nacht:true,  qual:'', farbe:'#6d4ec9', minBesetzung:0},
+  {id:'N2', name:'Nacht (N2)',       kuerzel:'N2', start:'21:00', dauer:12,  nacht:true,  qual:'', farbe:'#8a5ee0', minBesetzung:0},
+  {id:'TN1',name:'24h-Dienst (TN1)', kuerzel:'TN1',start:'08:00', dauer:24,  nacht:true,  qual:'', farbe:'#c0392b', minBesetzung:0},
+  {id:'TN2',name:'24h-Dienst (TN2)', kuerzel:'TN2',start:'09:00', dauer:24,  nacht:true,  qual:'', farbe:'#b83a2e', minBesetzung:0},
+  {id:'TN3',name:'24h-Dienst (TN3)', kuerzel:'TN3',start:'07:00', dauer:24,  nacht:true,  qual:'', farbe:'#a83228', minBesetzung:0},
+  {id:'A',  name:'A-Dienst',         kuerzel:'A',  start:'08:00', dauer:9.5, nacht:false, qual:'', farbe:'#2e9e6b', minBesetzung:0},
+  {id:'EAT',name:'Einarbeitung Tag (EAT)',  kuerzel:'EAT',start:'08:00',dauer:12, nacht:false,qual:'',farbe:'#4c8dff',minBesetzung:0},
+  {id:'EAN',name:'Einarbeitung Nacht (EAN)',kuerzel:'EAN',start:'20:00',dauer:12, nacht:true, qual:'',farbe:'#6b5ed9',minBesetzung:0},
+  {id:'BUE1',name:'Bereitschaft (BÜ1)', kuerzel:'BÜ1',start:'07:00', dauer:9.5,nacht:false,qual:'',farbe:'#8a8f3a',minBesetzung:0},
+  {id:'BUE', name:'Bereitschaft (BÜ)',  kuerzel:'BÜ', start:'08:00', dauer:8,  nacht:false,qual:'',farbe:'#7a7f30',minBesetzung:0},
+  {id:'BUE4',name:'Bereitschaft kurz (BÜ)',kuerzel:'BÜ4',start:'00:00',dauer:4, nacht:false,qual:'',farbe:'#6a6f28',minBesetzung:0},
+  {id:'CB',  name:'CB-Dienst (CB)',     kuerzel:'CB', start:'08:00', dauer:2,  nacht:false,qual:'',farbe:'#c77dbb',minBesetzung:0},
+  {id:'FZA', name:'Freizeitausgleich (FZA)',kuerzel:'FZA',start:'00:00',dauer:0,nacht:false,qual:'',farbe:'#6b7280',minBesetzung:0, arbeit:false},
+  {id:'ZD',  name:'Zusatzdienst (ZD)',  kuerzel:'ZD', start:'00:00', dauer:0,  nacht:false,qual:'',farbe:'#555b66',minBesetzung:0, arbeit:false},
+  {id:'EAZ', name:'Ausgleich (EAZ)',    kuerzel:'EAZ',start:'00:00', dauer:0,  nacht:false,qual:'',farbe:'#4a5560',minBesetzung:0, arbeit:false},
+];}
 function stdEinstellungen(){ return {
   qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
   dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
   folge:{an:false,maxFolge:6}, mindestbesetzung:{an:true}
 };}
 function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
-let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:standardSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
+let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:pflegeSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
 
 /* ---------- Helfer ---------- */
 function def(id){ return state.schichtarten.find(s=>s.id===id); }
@@ -534,7 +562,7 @@ function normalisieren(s){
   const mr=+s.min_ruhe_h; s.min_ruhe_h = (Number.isFinite(mr) && mr>=0) ? mr : 11;
   s.bundesland = (typeof s.bundesland==='string' && BUNDESLAENDER.some(x=>x[0]===s.bundesland)) ? s.bundesland : 'BY';
   s.schichtarten = Array.isArray(s.schichtarten) ? s.schichtarten.filter(x=>x && typeof x==='object') : [];
-  if(!s.schichtarten.length) s.schichtarten = standardSchichtarten();
+  if(!s.schichtarten.length) s.schichtarten = pflegeSchichtarten();
   s.schichtarten.forEach(x=>{ if(x.minBesetzung==null) x.minBesetzung=0; if(!x.id) x.id=uid(); });  // kaputte Einträge raus, NUR fehlende IDs ergänzen, Duplikate NICHT stillschweigend umbenennen
   // Einstellungen tief zusammenführen, damit unvollständige Unterobjekte keine Standardfelder verdrängen
   const de=stdEinstellungen(), se=(s.einstellungen && typeof s.einstellungen==='object')?s.einstellungen:{};
@@ -728,6 +756,25 @@ function renderTeam(){
 function zyklus(){ return ["", ...state.schichtarten.map(s=>s.id), "FREI", "KRANK"]; }
 function zellFarbe(id){ const d=def(id); if(d) return d.farbe; if(id==="FREI") return "var(--frei)"; if(id==="KRANK") return "var(--krank)"; if(id==="URLAUB") return "var(--urlaub)"; if(id==="WUNSCHFREI") return "var(--wunsch)"; return ""; }
 function renderEinsArt(){ document.getElementById("einsArt").innerHTML=state.schichtarten.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join(""); }
+/* Schicht-Palette (Pinsel): Dienst wählen, dann Zellen antippen = schnell füllen (wie IHM) */
+let aktiverPinsel=null;
+function setPinsel(v){ aktiverPinsel = (v==null||v==='') ? null : v; renderPalette(); paletteStatus(); }
+function paletteStatus(){
+  const st=document.getElementById('palettestatus'); if(!st) return;
+  if(aktiverPinsel===null){ st.innerHTML='🖌 <b>Schicht-Palette:</b> einen Dienst antippen → dann Zellen antippen, um schnell zu füllen (wie bei IHM). „✖ Pinsel aus" = normales Menü.'; }
+  else { const lbl = def(aktiverPinsel) ? (def(aktiverPinsel).kuerzel+' · '+def(aktiverPinsel).name) : nm(aktiverPinsel); st.innerHTML='🖌 <b>Pinsel aktiv: '+esc(lbl)+'</b> — tippe jetzt Zellen an, um sie zu füllen. „✖ Pinsel aus" zum Beenden.'; }
+}
+function renderPalette(){
+  const box=document.getElementById('palette'); if(!box) return;
+  let h='<button class="pchip'+(aktiverPinsel===null?' aktiv':'')+'" onclick="setPinsel(null)">✖ Pinsel aus</button>';
+  for(const s of state.schichtarten){
+    const ende=zeitPlus(s.start,s.dauer);
+    h+='<button class="pchip'+(aktiverPinsel===s.id?' aktiv':'')+'" onclick="setPinsel(\''+s.id+'\')" style="background:'+s.farbe+';color:#fff;border-color:'+s.farbe+'" title="'+esc(s.name)+'">'+esc(s.kuerzel)+'<span class="pz">'+s.dauer+'h·'+esc(s.start)+'–'+esc(ende)+'</span></button>';
+  }
+  const fest=[['FREI','– Frei','var(--frei)'],['KRANK','K Krank','var(--krank)'],['URLAUB','Url Urlaub','var(--urlaub)'],['WUNSCHFREI','WF Wunschfrei','var(--wunsch)']];
+  for(const [v,label,bg] of fest){ h+='<button class="pchip'+(aktiverPinsel===v?' aktiv':'')+'" onclick="setPinsel(\''+v+'\')" style="background:'+bg+';color:#fff">'+label+'</button>'; }
+  box.innerHTML=h;
+}
 function renderLegend(){
   const l=document.getElementById("legend");
   let h=state.schichtarten.map(s=>`<span><i class="chip" style="background:${s.farbe}"></i>${esc(s.name)}</span>`).join("");
@@ -735,6 +782,7 @@ function renderLegend(){
   h+=`<span><i class="chip" style="outline:2px solid var(--wunsch);background:transparent"></i>Wunschfrei</span><span><i class="chip" style="outline:2px solid var(--urlaub);background:transparent"></i>Urlaub</span>`;
   h+=`<span><i class="chip" style="background:var(--feier)"></i>Feiertag (${esc(blName(state.bundesland||'BY'))})</span>`;
   l.innerHTML=h;
+  renderPalette();
 }
 function renderGridNamen(){ document.querySelectorAll('#gridBody tr').forEach(tr=>{ const id=tr.dataset.id; const m=state.team.find(x=>x.id===id); if(m) tr.querySelector('td').innerHTML=`${esc(m.name)}${m.springer?' <span class="badge SPR">Springer</span>':''}`; }); }
 function renderGrid(){
@@ -758,7 +806,7 @@ function renderGrid(){
       const badge=pd?`<span class="patbadge" style="background:${pd.farbe||'#888'}" title="${esc(pd.name)}">${esc((pd.name||'?').trim().slice(0,1).toUpperCase())}</span>`:"";
       row+=`<td class="cell ${istWE(j,m,d)?'we':''} ${req} ${fei[d]?'feier':''}" ${fei[d]?`title="${esc(fei[d])}"`:''} ${bg} data-id="${mitar.id}" data-iso="${is}">${kuerzel(art)}${badge}</td>`;
     }
-    tr.innerHTML=row; tr.querySelectorAll("td.cell").forEach(td=>td.onclick=(e)=>{ e.stopPropagation(); zelleKlick(td); }); body.appendChild(tr);
+    tr.innerHTML=row; tr.querySelectorAll("td.cell").forEach(td=>td.onclick=(e)=>{ e.stopPropagation(); if(aktiverPinsel!==null){ setZelle(td.dataset.id, td.dataset.iso, aktiverPinsel); } else { zelleKlick(td); } }); body.appendChild(tr);
   });
   renderStundenkonto(); renderDeckung();
 }
@@ -1052,7 +1100,7 @@ function vorlageIHMTun(){
 }
 function leeren(){
   if(!confirm("Wirklich ALLES löschen? (Schichtarten, Team und Plan)")) return;
-  const h=new Date(); state={monat:[h.getFullYear(),h.getMonth()+1],min_ruhe_h:11,schichtarten:standardSchichtarten(),einstellungen:stdEinstellungen(),team:[neuerMitarbeiter()],plan:{}};
+  const h=new Date(); state={monat:[h.getFullYear(),h.getMonth()+1],min_ruhe_h:11,schichtarten:pflegeSchichtarten(),einstellungen:stdEinstellungen(),team:[neuerMitarbeiter()],plan:{}};
   normalisieren(); speichernLokal(); aufbauen();
 }
 
