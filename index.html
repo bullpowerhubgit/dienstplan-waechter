@@ -6,6 +6,13 @@
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Dienstplan-Wächter</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0e1116">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dienstplan">
 <style>
   :root{
     --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3240;
@@ -183,6 +190,11 @@
   <div class="panel">
     <h2>2 · Dienstplan</h2>
     <p class="hint">In eine Zelle klicken → <b>beliebige Schicht direkt auswählen</b> (alle Schichtarten, Frei, Krank, Urlaub, Wunschfrei, leer). Alles manuell änderbar. <b>Feiertage</b> (nach Bundesland) sind <b style="color:var(--feier)">rot</b> markiert.</p>
+    <div class="row" style="margin:4px 0 2px">
+      <button class="primary" onclick="autoVorschlag()">🤖 Plan automatisch vervollständigen</button>
+      <button onclick="autoWuerfeln()">🎲 Anderer Vorschlag</button>
+    </div>
+    <p class="hint" style="margin-top:2px">Füllt <b>leere Pflichtdienste</b> (Schichtarten mit „Mind." ≥ 1) automatisch mit passenden, verfügbaren Personen — respektiert <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit</b> und <b>vorhandene Einträge</b> (überschreibt nichts). <b>Entwurf — bitte prüfen.</b></p>
     <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
     <div class="legend" id="legend"></div>
     <p class="hint" style="margin-top:12px"><b>Vor dem Drucken:</b> erst prüfen lassen (Gesetz/Fairness), dann drucken oder senden.</p>
@@ -221,7 +233,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-P</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-S</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -247,7 +259,7 @@ function standardSchichtarten(){ return [
 ];}
 function stdEinstellungen(){ return {
   qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
-  dienstdauer:{an:true,maxH:10}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
+  dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
   folge:{an:false,maxFolge:6}, mindestbesetzung:{an:true}
 };}
 function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
@@ -411,10 +423,15 @@ function pruefeMindestbesetzung(){
   for(const s of state.schichtarten){
     const min=+s.minBesetzung||0; if(min<=0) continue;
     const brauchtQual = s.qual ? s.qual.toLowerCase() : null;
+    const luecken=[];
     for(let d=1; d<=tage; d++){
       const is=iso(j,m,d); let anz=0;
       for(const ma of state.team){ if((state.plan[ma.id]||{})[is]===s.id && (!brauchtQual || quals(ma).includes(brauchtQual))) anz++; }
-      if(anz<min) out.push({schwere:"HINWEIS",mitarbeiter:s.name,tag:is,text:`Unterbesetzung ${s.name}${brauchtQual?' (qualifiziert)':''}: ${anz}/${min} besetzt.`});
+      if(anz<min) luecken.push(d);
+    }
+    if(luecken.length){
+      const tageTxt = luecken.length<=14 ? ('Tage: '+luecken.join(', ')) : (luecken.length+' Tage');
+      out.push({schwere:"HINWEIS",mitarbeiter:s.name,tag:null,text:`${s.name}${brauchtQual?' (qualifiziert)':''} an ${luecken.length} Tag(en) unter „Mind." ${min} besetzt (${tageTxt}).`});
     }
   }
   return out;
@@ -460,7 +477,6 @@ function probeKonflikte(m, tag, art){
   try{
     state.team=[m];
     const run=()=>{ let v=[...pruefeRuhezeit(r)];
-      if(e.dienstdauer.an) v.push(...pruefeDienstdauer(e.dienstdauer.maxH));
       if(e.stunden.an) v.push(...pruefeStunden(e.stunden.toleranz));
       if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
       if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
@@ -474,6 +490,7 @@ function probeKonflikte(m, tag, art){
     const neu=nachher.filter(x=> !vs.has(schluessel(x)));          // NUR neu verursachte
     gesetz=[...new Set([...neu.filter(x=>x.schwere==='GESETZ').map(x=>x.text), ...overlap])];
     warn=[...new Set(neu.filter(x=>x.schwere==='HINWEIS').map(x=>x.text))];
+    if(e.dienstdauer.an && istArbeit(art) && dauer(art)>e.dienstdauer.maxH) warn.push(`${nm(art)} dauert ${dauer(art)} h — über ${e.dienstdauer.maxH} h (§ 3 ArbZG; in der Pflege mit Ausgleich/Tarif möglich — bitte prüfen).`);
   } finally {
     state.team=origTeam;
     if(origPlan===undefined) delete state.plan[m.id]; else state.plan[m.id]=origPlan;
@@ -516,8 +533,9 @@ function normalisieren(s){
   if(!Number.isInteger(jy) || !Number.isInteger(jm) || jm<1 || jm>12){ const h=new Date(); s.monat=[h.getFullYear(),h.getMonth()+1]; }
   const mr=+s.min_ruhe_h; s.min_ruhe_h = (Number.isFinite(mr) && mr>=0) ? mr : 11;
   s.bundesland = (typeof s.bundesland==='string' && BUNDESLAENDER.some(x=>x[0]===s.bundesland)) ? s.bundesland : 'BY';
-  s.schichtarten = (Array.isArray(s.schichtarten) && s.schichtarten.length) ? s.schichtarten : standardSchichtarten();
-  s.schichtarten.forEach(x=>{ if(x.minBesetzung==null) x.minBesetzung=0; if(!x.id) x.id=uid(); });  // NUR fehlende IDs ergänzen, Duplikate NICHT stillschweigend umbenennen
+  s.schichtarten = Array.isArray(s.schichtarten) ? s.schichtarten.filter(x=>x && typeof x==='object') : [];
+  if(!s.schichtarten.length) s.schichtarten = standardSchichtarten();
+  s.schichtarten.forEach(x=>{ if(x.minBesetzung==null) x.minBesetzung=0; if(!x.id) x.id=uid(); });  // kaputte Einträge raus, NUR fehlende IDs ergänzen, Duplikate NICHT stillschweigend umbenennen
   // Einstellungen tief zusammenführen, damit unvollständige Unterobjekte keine Standardfelder verdrängen
   const de=stdEinstellungen(), se=(s.einstellungen && typeof s.einstellungen==='object')?s.einstellungen:{};
   for(const k in de){ de[k]=Object.assign({}, de[k], (se[k] && typeof se[k]==='object')?se[k]:{}); }
@@ -921,6 +939,39 @@ function vorschlagFuerTag(is){
   if(panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
   einspringen();
 }
+/* Plan automatisch vervollständigen: füllt NUR leere Pflichtdienste (Mind>=1) mit passenden, verfügbaren Personen. Überschreibt nichts. Entwurf. */
+let autoGefuellt=[];
+function autoVorschlag(){ autoFuellen(false); }
+function autoWuerfeln(){ autoGefuellt.forEach(k=>{ const p=k.split('|'); if(state.plan[p[0]]) delete state.plan[p[0]][p[1]]; }); autoGefuellt=[]; autoFuellen(true); }
+function autoFuellen(zufall){
+  const aktiv=state.schichtarten.filter(s=>(+s.minBesetzung||0)>0);
+  if(!aktiv.length){ modalOeffnen('<h3>ℹ️ Kein Tagesbedarf hinterlegt</h3><p>Damit automatisch vervollständigt werden kann, setze bei den Schichtarten die Spalte <b>„Mind."</b> auf die Anzahl, die <b>täglich</b> besetzt sein muss (z. B. Tagdienst = 1, Nachtdienst = 1).</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
+  if(!state.team.some(t=>t.name)){ modalOeffnen('<h3>ℹ️ Kein Team</h3><p>Trage zuerst unter „1 · Team" Mitarbeiter ein.</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
+  const [j,m]=state.monat, tage=tageImMonat(j,m);
+  let gefuellt=0, offen=0;
+  for(let d=1; d<=tage; d++){
+    const is=iso(j,m,d);
+    for(const s of aktiv){
+      const min=+s.minBesetzung||0;
+      const brauchtQual = s.qual ? s.qual.toLowerCase() : null;
+      let anz=state.team.filter(mm=>(state.plan[mm.id]||{})[is]===s.id && (!brauchtQual||quals(mm).includes(brauchtQual))).length;
+      let schutz=0;
+      while(anz<min && schutz<80){
+        schutz++;
+        const {geeignet}=werKannEinspringen(is, s.id);
+        const frei=geeignet.filter(g=>!((state.plan[g.id]||{})[is]));  // nur wirklich LEERE Zellen füllen – FREI/alles bleibt
+        if(!frei.length){ offen+=(min-anz); break; }
+        const pick=frei[ zufall ? Math.floor(Math.random()*Math.min(2,frei.length)) : 0 ];
+        state.plan[pick.id]=state.plan[pick.id]||{};
+        state.plan[pick.id][is]=s.id;
+        autoGefuellt.push(pick.id+'|'+is);
+        anz++; gefuellt++;
+      }
+    }
+  }
+  renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
+  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit</b> wurden respektiert. Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+}
 
 /* Datei / CSV / Beispiel / leeren */
 function sichernDatei(){
@@ -987,6 +1038,13 @@ function vorlageIHMTun(){
       {id:'A',  name:'A-Dienst',         kuerzel:'A',  start:'08:00', dauer:9.5, nacht:false, qual:'', farbe:'#2e9e6b', minBesetzung:0},
       {id:'EAT',name:'Einarbeitung Tag (EAT)',  kuerzel:'EAT',start:'08:00',dauer:12, nacht:false,qual:'',farbe:'#4c8dff',minBesetzung:0},
       {id:'EAN',name:'Einarbeitung Nacht (EAN)',kuerzel:'EAN',start:'20:00',dauer:12, nacht:true, qual:'',farbe:'#6b5ed9',minBesetzung:0},
+      {id:'BUE1',name:'Bereitschaft (BÜ1)', kuerzel:'BÜ1',start:'07:00', dauer:9.5,nacht:false,qual:'',farbe:'#8a8f3a',minBesetzung:0},
+      {id:'BUE', name:'Bereitschaft (BÜ)',  kuerzel:'BÜ', start:'08:00', dauer:8,  nacht:false,qual:'',farbe:'#7a7f30',minBesetzung:0},
+      {id:'BUE4',name:'Bereitschaft kurz (BÜ)',kuerzel:'BÜ4',start:'00:00',dauer:4, nacht:false,qual:'',farbe:'#6a6f28',minBesetzung:0},
+      {id:'CB',  name:'CB-Dienst (CB)',     kuerzel:'CB', start:'08:00', dauer:2,  nacht:false,qual:'',farbe:'#c77dbb',minBesetzung:0},
+      {id:'FZA', name:'Freizeitausgleich (FZA)',kuerzel:'FZA',start:'00:00',dauer:0,nacht:false,qual:'',farbe:'#6b7280',minBesetzung:0, arbeit:false},
+      {id:'ZD',  name:'Zusatzdienst (ZD)',  kuerzel:'ZD', start:'00:00', dauer:0,  nacht:false,qual:'',farbe:'#555b66',minBesetzung:0, arbeit:false},
+      {id:'EAZ', name:'Ausgleich (EAZ)',    kuerzel:'EAZ',start:'00:00', dauer:0,  nacht:false,qual:'',farbe:'#4a5560',minBesetzung:0, arbeit:false},
     ],
     team:[neuerMitarbeiter()], plan:{} };
   normalisieren(); speichernLokal(); aufbauen();
@@ -1104,5 +1162,6 @@ function handbuch(){
 
 init();
 </script>
+<script>if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){});});}</script>
 </body>
 </html>
