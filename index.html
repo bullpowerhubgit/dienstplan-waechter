@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>Dienstplan-Wächter</title>
 <style>
   :root{
@@ -182,7 +184,9 @@
     <p class="hint">In eine Zelle klicken → <b>beliebige Schicht direkt auswählen</b> (alle Schichtarten, Frei, Krank, Urlaub, Wunschfrei, leer). Alles manuell änderbar. <b>Feiertage</b> (nach Bundesland) sind <b style="color:var(--feier)">rot</b> markiert.</p>
     <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
     <div class="legend" id="legend"></div>
-    <div class="row" style="margin-top:12px">
+    <p class="hint" style="margin-top:12px"><b>Vor dem Drucken:</b> erst prüfen lassen (Gesetz/Fairness), dann drucken oder senden.</p>
+    <div class="row">
+      <button class="primary" onclick="pruefen()">🛡️ Plan prüfen</button>
       <button onclick="druckDienstplan()">🖨️ Dienstplan drucken</button>
       <button onclick="teileDienstplan()">📤 An Mitarbeiter senden / teilen</button>
     </div>
@@ -215,7 +219,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-M</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-N</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -872,10 +876,11 @@ function pruefen(){
   const v=pruefeAlles(); const box=document.getElementById("ergebnis");
   const aus=deaktivierteKern();
   const banner = aus.length ? `<div class="warnbanner">⚠️ <b>Unvollständig geprüft</b> — abgeschaltet: ${esc(aus.join(', '))}. Ein grünes Ergebnis bedeutet <b>nicht</b> „alles sauber", sondern nur: keine Auffälligkeit in den <i>aktivierten</i> Prüfungen.</div>` : "";
-  if(!v.length){ box.innerHTML=banner+`<span class="ok">✅ Keine Auffälligkeiten in den aktivierten Prüfungen.</span> <span class="mini">Nicht aktivierte Regeln und fehlende Daten bleiben unberücksichtigt.</span>`; return; }
+  if(!v.length){ box.innerHTML=banner+`<span class="ok">✅ Keine Auffälligkeiten in den aktivierten Prüfungen.</span> <span class="mini">Nicht aktivierte Regeln und fehlende Daten bleiben unberücksichtigt.</span>`; box.scrollIntoView({behavior:'smooth',block:'center'}); return; }
   const g=v.filter(x=>x.schwere==="GESETZ").length;
   box.innerHTML=banner+`<p class="mini">${v.length} Punkt(e), davon <b>${g} GESETZ-kritisch</b>:</p>`+
     v.map(x=>`<div class="item ${x.schwere}"><span class="badge ${x.schwere}">${x.schwere}</span><b>${esc(x.mitarbeiter)}</b>${x.tag?" · "+x.tag.split('-').reverse().join('.'):""}: ${esc(x.text)}</div>`).join("");
+  box.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function einspringen(){
   const d=parseInt(document.getElementById("einsTag").value,10); const box=document.getElementById("einsErg");
@@ -946,7 +951,8 @@ function beispielLaden(){
   };
   normalisieren(); speichernLokal(); aufbauen();
   document.getElementById("einsTag").value=30; document.getElementById("einsArt").value="F";
-  setStatus("Beispiel geladen — teste die Krankmeldung am 30. (Tagdienst).");
+  setStatus("Beispiel geladen — scroll runter zu Abschnitt 1 (Team) und 2 (Dienstplan).");
+  const g=document.querySelector('.grid'); if(g) g.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function vorlageIHM(){
   const mo = state.monat || [new Date().getFullYear(), new Date().getMonth()+1];
