@@ -129,6 +129,20 @@
 <div id="druckbereich"></div>
 
 <main>
+  <div id="lizStreifen"></div>
+  <style>
+    #lizStreifen{margin-bottom:14px}
+    .lizstreifen{padding:12px 16px;border-radius:12px;display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;font-size:14px;line-height:1.45}
+    .liz-test{background:#3a2410;border:1px solid #b5751f;color:#ffdca8}
+    .liz-test b{color:#ffcf87}
+    .liz-test a{color:#ffd8a0;text-decoration:underline}
+    .liz-ok{background:#12351f;border:1px solid #2e9e6b;color:#bdf3d4;justify-content:center;font-size:15px}
+    .liz-ok b{color:#9ff0c2}
+    .lizstreifen .lz-l{flex:1;min-width:260px}
+    .lizstreifen button{white-space:nowrap}
+    @media print{ #lizStreifen{display:none} }
+    @media print{ #druckbereich .wz{position:fixed;top:38%;left:0;right:0;text-align:center;transform:rotate(-22deg);font-size:58px;color:rgba(190,0,0,.17);font-weight:800;letter-spacing:3px;z-index:9999;pointer-events:none;display:block} }
+  </style>
   <div class="panel intro">
     <h2>So funktioniert's (zum Testen)</h2>
     <p><b>1.</b> <b>Schichtarten</b> anlegen · <b>2.</b> <b>Team</b> eintragen (Vornamen/Kürzel) · <b>3.</b> <b>Dienstplan</b> füllen (Zelle klicken) · <b>4.</b> <b>Prüfen</b> · <b>5.</b> <b>Krankmeldung</b> testen.</p>
@@ -243,7 +257,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-V</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-05-W</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -595,7 +609,7 @@ function aufbauen(){
   document.getElementById("monat").value=state.monat[0]+"-"+String(state.monat[1]).padStart(2,"0");
   const bs=document.getElementById("bundesland"); if(bs){ bs.innerHTML=BUNDESLAENDER.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join(''); bs.value=state.bundesland||'BY'; }
   document.getElementById("ruhe").value=String(state.min_ruhe_h||11);
-  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderPatienten(); renderEinsArt(); renderGrid(); renderLegend();
+  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderPatienten(); renderEinsArt(); renderGrid(); renderLegend(); renderLizStreifen();
   letzteGeprueft=false;
 }
 // nur beim Programmstart: Browserstand lesen
@@ -888,6 +902,58 @@ document.addEventListener('click', ()=>{ const m=document.getElementById('zellMe
 
 /* Dienstplan drucken (ohne Popup — nutzt Druckbereich + @media print) */
 const MONATE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+/* ===== Lizenz-System (offline, pro Einrichtung) ===== */
+const KONTAKT = { name:"Rudolf Sarkany", firma:"AIITEC", mail:"aiitecbuuss@gmail.com", web:"https://www.aiitec.online/", tel:"+49 176 22890860", adr:"Uttinger Straße 3 · 86923 Finning" };
+const LIZKEY = "dienstplan-waechter-lizenz";
+const LIZ_SALT = "AIITEC-DPW-2026";
+function lizBerechne(firma){
+  const base = LIZ_SALT + "|" + String(firma||"").trim().toLowerCase().replace(/\s+/g,' ');
+  let h1=0x811c9dc5>>>0, h2=0x12345678>>>0;
+  for(let i=0;i<base.length;i++){ h1 ^= base.charCodeAt(i); h1 = Math.imul(h1,0x01000193)>>>0; }
+  for(let i=base.length-1;i>=0;i--){ h2 ^= base.charCodeAt(i); h2 = Math.imul(h2,0x85ebca6b)>>>0; }
+  const b36=n=>n.toString(36).toUpperCase().padStart(7,'0').slice(-7);
+  const raw=(b36(h1)+b36(h2)).slice(0,10);
+  return "DPW-"+raw.slice(0,5)+"-"+raw.slice(5,10);
+}
+function lizNorm(x){ return String(x||"").replace(/\s+/g,'').toUpperCase(); }
+function lizPruefe(firma,key){ return !!firma && !!key && lizNorm(lizBerechne(firma))===lizNorm(key); }
+function lizLaden(){ try{ const s=localStorage.getItem(LIZKEY); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function lizAktiv(){ const l=lizLaden(); return !!(l && l.firma && l.schluessel && lizPruefe(l.firma,l.schluessel)); }
+function lizFirma(){ const l=lizLaden(); return (l&&l.firma)?l.firma:''; }
+function lizEntfernen(){ try{ localStorage.removeItem(LIZKEY); }catch(e){} renderLizStreifen(); setStatus("Lizenz entfernt — wieder Testversion."); }
+function renderLizStreifen(){
+  const el=document.getElementById('lizStreifen'); if(!el) return;
+  if(lizAktiv()){
+    el.className='lizstreifen liz-ok';
+    el.innerHTML=`<span>✅ <b>Lizenziert für ${esc(lizFirma())}</b> · Dienstplan-Wächter &nbsp; <button onclick="lizEntfernen()">Lizenz entfernen</button></span>`;
+  } else {
+    el.className='lizstreifen liz-test';
+    el.innerHTML=`<div class="lz-l"><b>⚠️ TESTVERSION – nicht lizenziert.</b> Für die <b>offizielle Nutzung in Ihrer Einrichtung</b> bitte Lizenz anfragen:<br>`
+      +`<b>${esc(KONTAKT.name)} · ${esc(KONTAKT.firma)}</b> · `
+      +`<a href="mailto:${KONTAKT.mail}">${KONTAKT.mail}</a> · `
+      +`<a href="tel:+4917622890860">${KONTAKT.tel}</a> · `
+      +`<a href="${KONTAKT.web}" target="_blank" rel="noopener">aiitec.online</a></div>`
+      +`<button class="primary" onclick="lizEingabe()">🔑 Lizenzschlüssel eingeben</button>`;
+  }
+}
+function lizEingabe(){
+  const l=lizLaden()||{};
+  modalOeffnen(`<h2 style="margin-top:0">🔑 Lizenzschlüssel eingeben</h2>
+    <p class="mini">Sie erhalten Firmenname und Schlüssel von ${esc(KONTAKT.name)} (${KONTAKT.mail}). Beides muss genau übereinstimmen.</p>
+    <p><label class="ctl" style="display:block;margin-bottom:8px">Einrichtung / Firma<br><input id="lizF" style="width:100%;margin-top:4px" value="${esc(l.firma||'')}" placeholder="z. B. Münchener Pflege Holding GmbH"></label></p>
+    <p><label class="ctl" style="display:block">Lizenzschlüssel<br><input id="lizK" style="width:100%;margin-top:4px" value="${esc(l.schluessel||'')}" placeholder="DPW-XXXXX-XXXXX"></label></p>
+    <p id="lizMsg" class="mini" style="min-height:18px"></p>
+    <p><button class="primary" onclick="lizSpeichern()">Freischalten</button> <button onclick="modalSchliessen()">Abbrechen</button></p>`);
+}
+function lizSpeichern(){
+  const firma=document.getElementById('lizF').value.trim();
+  const key=document.getElementById('lizK').value.trim();
+  const msg=document.getElementById('lizMsg');
+  if(!firma || !key){ if(msg){msg.textContent="Bitte Firma und Schlüssel eingeben.";msg.style.color="#ffb4a4";} return; }
+  if(!lizPruefe(firma,key)){ if(msg){msg.textContent="❌ Schlüssel passt nicht zu diesem Firmennamen. Bitte genau wie mitgeteilt eingeben.";msg.style.color="#ffb4a4";} return; }
+  try{ localStorage.setItem(LIZKEY, JSON.stringify({firma, schluessel:key})); }catch(e){}
+  modalSchliessen(); renderLizStreifen(); setStatus("✅ Lizenz aktiviert — lizenziert für "+firma+".");
+}
 function druckDienstplan(){
   const [j,m]=state.monat, tage=tageImMonat(j,m);
   const fei=feiertageImMonat(j,m,state.bundesland||'BY');
@@ -922,7 +988,12 @@ function druckDienstplan(){
     h+='</tbody></table>';
   }
   h+='<div class="dsign"><div>Erstellt am: '+erstellt+'</div><div>Freigabe / Unterschrift Leitung: _______________________</div></div>';
-  h+='<p class="dfoot">Dienstplan-Wächter · Hilfe zur Planung, kein Rechtsgutachten · läuft offline, keine Datenübertragung.</p>';
+  if(lizAktiv()){
+    h+='<p class="dfoot">Dienstplan-Wächter · Lizenziert für '+esc(lizFirma())+' · Hilfe zur Planung, kein Rechtsgutachten · läuft offline.</p>';
+  }else{
+    h+='<p class="dfoot"><b>TESTVERSION – nicht lizenziert.</b> Offizielle Lizenz: '+esc(KONTAKT.name)+' · '+esc(KONTAKT.mail)+' · '+esc(KONTAKT.tel)+' · '+esc(KONTAKT.web)+' — Hilfe zur Planung, kein Rechtsgutachten · läuft offline.</p>';
+    h='<div class="wz">TESTVERSION · nicht lizenziert · '+esc(KONTAKT.web)+'</div>'+h;
+  }
   document.getElementById('druckbereich').innerHTML=h;
   window.print();
 }

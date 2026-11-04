@@ -1,7 +1,7 @@
 /* Dienstplan-Wächter Service Worker
    HTML wird IMMER frisch aus dem Netz geladen (nie veraltet).
    Bilder/Manifest werden gecacht (schnell + offline). */
-const CACHE = 'dw-2026-11-04-V';
+const CACHE = 'dw-2026-11-05-W';
 const CORE = ['./manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
