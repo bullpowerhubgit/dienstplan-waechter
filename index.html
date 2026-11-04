@@ -170,7 +170,11 @@
       <th style="width:80px">Dauer h</th><th style="width:60px">Nacht</th><th>Nötige Quali</th>
       <th style="width:55px">Mind.</th><th style="width:60px">Farbe</th><th style="width:40px"></th>
     </tr></thead><tbody id="saBody"></tbody></table></div>
-    <div style="margin-top:10px"><button onclick="saZeile()">+ Schichtart</button></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="saZeile()">+ Schichtart</button>
+      <button onclick="pflegeSchichtartenLaden()" style="background:#1f6f43;border-color:#2e9e6b">🏥 Alle 19 Pflege-Dienste laden</button>
+    </div>
+    <p class="hint" style="margin-top:6px">„🏥 Alle 19 Pflege-Dienste laden" setzt die Liste auf alle 19 Dienste (T, T1, T2, N, N1, N2, TN1–3, A, EAT, EAN, BÜ, FZA, ZD, EAZ, CB) — <b>Team und Dienstplan bleiben erhalten.</b></p>
   </div>
 
   <div class="panel">
@@ -239,7 +243,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-U</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-04-V</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -1097,6 +1101,12 @@ function vorlageIHMTun(){
     team:[neuerMitarbeiter()], plan:{} };
   normalisieren(); speichernLokal(); aufbauen();
   setStatus("Dienstzeiten-Vorlage geladen (T/N/24h, aus Screenshot abgeleitet). Bedeutungen & weitere Codes (FZA/BÜ/CB) bitte mit deiner Frau/Einrichtung bestätigen. Urlaub=Team-Feld, Frei/Krank=Rasterzelle.");
+}
+function pflegeSchichtartenLaden(){
+  state.schichtarten = pflegeSchichtarten();
+  const weg = bereinigePlan();
+  normalisieren(); speichernLokal(); aufbauen();
+  setStatus('🏥 Alle 19 Pflege-Dienste geladen — Team & Dienstplan sind erhalten geblieben.' + (weg ? ' ('+weg+' nicht mehr passende Zelle(n) bereinigt)' : ''));
 }
 function leeren(){
   if(!confirm("Wirklich ALLES löschen? (Schichtarten, Team und Plan)")) return;
