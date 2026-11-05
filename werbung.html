@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dienstplan-Wächter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: dunkle, einspaltige Verkaufsseite; eine animierte Plan-Vorschau als Held */
+  :root{
+    --bg:#0a1018; --panel:#111c2b; --panel2:#0e1826; --line:#23344a;
+    --fg:#e8eef6; --muted:#93a6bd; --accent:#2fbf71; --accent-ink:#04120a;
+    --blue:#4a93ff; --warn:#f2a93b; --rot:#e5614f;
+    --d:"Bricolage Grotesque",-apple-system,"Segoe UI",system-ui,sans-serif;
+    --b:"IBM Plex Sans",-apple-system,"Segoe UI",system-ui,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);font-family:var(--b);line-height:1.55;
+    background-image:radial-gradient(1100px 500px at 80% -10%,rgba(47,191,113,.10),transparent),radial-gradient(900px 500px at 0% 0%,rgba(74,147,255,.08),transparent)}
+  .wrap{max-width:960px;margin:0 auto;padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
+  h1,h2,h3{font-family:var(--d);text-wrap:balance;margin:0;line-height:1.08}
+  .eyebrow{font-family:var(--b);font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-size:12px;color:var(--accent)}
+  a{color:inherit}
+  /* HERO */
+  .hero{padding-block:46px 30px;display:grid;grid-template-columns:1.05fr .95fr;gap:34px;align-items:center}
+  .hero h1{font-size:clamp(34px,6vw,58px);font-weight:800;letter-spacing:-.02em}
+  .hero p.sub{color:var(--muted);font-size:clamp(16px,2.3vw,19px);margin-top:14px;max-width:34ch}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;border-radius:12px;padding:13px 20px;text-decoration:none;border:1px solid transparent;transition:transform .15s ease,background .15s ease}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px -10px rgba(47,191,113,.6)}
+  .btn-ghost{border-color:var(--line);color:var(--fg);background:rgba(255,255,255,.02)}
+  .trustline{margin-top:18px;color:var(--muted);font-size:13px;display:flex;gap:16px;flex-wrap:wrap}
+  .trustline b{color:var(--fg);font-weight:600}
+  /* animierte Plan-Vorschau */
+  .demo{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 30px 70px -40px rgba(0,0,0,.9)}
+  .demo-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .demo-top .dot{width:10px;height:10px;border-radius:50%;background:#2a3b52;display:inline-block;margin-right:6px}
+  .demo-ttl{font-family:var(--d);font-weight:700;font-size:14px}
+  .grid{display:grid;grid-template-columns:72px repeat(7,1fr);gap:5px;font-size:12px}
+  .gc{height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:#0c1724;border:1px solid #1b2a3d;color:var(--muted);font-variant-numeric:tabular-nums}
+  .gc.name{justify-content:flex-start;padding-left:8px;background:transparent;border:none;color:var(--fg);font-weight:600}
+  .gc.head{background:transparent;border:none;color:var(--muted);height:20px}
+  .gc.f{color:#bfe9d2;background:rgba(47,191,113,.14);border-color:rgba(47,191,113,.4)}
+  .gc.n{color:#bcd3ff;background:rgba(74,147,255,.14);border-color:rgba(74,147,255,.4)}
+  .gc.u{color:#f7d9a6;background:rgba(242,169,59,.12);border-color:rgba(242,169,59,.35)}
+  .gc.fill{opacity:0;transform:scale(.6);animation:pop .45s forwards}
+  @keyframes pop{to{opacity:1;transform:scale(1)}}
+  .banner{margin-top:12px;border-radius:10px;padding:9px 12px;font-size:13px;display:flex;align-items:center;gap:8px;font-weight:600;opacity:0;transform:translateY(6px);transition:all .4s ease}
+  .banner.show{opacity:1;transform:none}
+  .banner.warn{background:rgba(242,169,59,.14);color:#f7d9a6;border:1px solid rgba(242,169,59,.4)}
+  .banner.ok{background:rgba(47,191,113,.14);color:#bfe9d2;border:1px solid rgba(47,191,113,.4)}
+  /* SECTIONS */
+  section{padding-block:34px;border-top:1px solid var(--line)}
+  .lead{font-family:var(--d);font-weight:700;font-size:clamp(22px,3.6vw,30px);letter-spacing:-.01em}
+  .sub2{color:var(--muted);margin-top:8px;max-width:60ch}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:22px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h3{font-size:16px;font-weight:700;margin-bottom:6px}
+  .card p{color:var(--muted);font-size:14px;margin:0}
+  .ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(47,191,113,.12);color:var(--accent);font-size:18px;margin-bottom:12px}
+  /* PREIS */
+  .prices{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  .price{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;flex-direction:column}
+  .price.best{border-color:rgba(47,191,113,.55);box-shadow:0 0 0 1px rgba(47,191,113,.25)}
+  .tag{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:3px 10px;margin-bottom:10px}
+  .amt{font-family:var(--d);font-weight:800;font-size:40px;letter-spacing:-.02em;line-height:1}
+  .amt small{font-family:var(--b);font-size:14px;font-weight:500;color:var(--muted)}
+  .per{color:var(--muted);font-size:13px;margin:6px 0 16px}
+  .price ul{list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+  .price li{display:flex;gap:9px;align-items:flex-start;color:var(--fg)}
+  .price li::before{content:"✓";color:var(--accent);font-weight:700}
+  .buy{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+  .qr{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px dashed var(--line);border-radius:12px;padding:10px}
+  .qr img{width:72px;height:72px;border-radius:8px;background:#fff;padding:4px}
+  .qr span{font-size:12px;color:var(--muted)}
+  /* FOOT */
+  .foot{padding-block:30px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+  .foot b{color:var(--fg)}
+  .foot .k{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px}
+  .sel{user-select:all;color:var(--fg)}
+  @media (max-width:760px){.hero{grid-template-columns:1fr;gap:24px}.prices{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){.gc.fill{animation:none;opacity:1;transform:none}.banner{transition:none;opacity:1;transform:none}.btn{transition:none}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Dienstplan-Wächter · von AIITEC</div>
+      <h1>Der Dienstplan, der mitdenkt.</h1>
+      <p class="sub">Plant Schichten, findet den passenden Einspringer bei Krankmeldung und warnt, bevor eine Ruhezeit gegen §5&nbsp;ArbZG läuft. Läuft komplett offline im Browser.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://bullpowerhubgit.github.io/dienstplan-waechter/" target="_blank" rel="noopener">▶︎ Kostenlos ausprobieren</a>
+        <a class="btn btn-ghost" href="#preis">Preise ansehen</a>
+      </div>
+      <div class="trustline">
+        <span>🔒 <b>Offline</b> – keine Daten verlassen das Gerät</span>
+        <span>👩‍⚕️ Von einer echten <b>Teamleiterin</b> getestet</span>
+      </div>
+    </div>
+
+    <div class="demo" aria-hidden="true">
+      <div class="demo-top">
+        <div class="demo-ttl"><span class="dot"></span>Dienstplan · November</div>
+        <div style="font-size:12px;color:var(--muted)">live</div>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="banner warn" id="bn-warn">⚠️ Timea: zu wenig Ruhezeit nach Nachtdienst</div>
+      <div class="banner ok" id="bn-ok">✓ Einspringer gefunden · Plan geprüft</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="eyebrow" style="color:var(--blue)">Der echte Schmerz</div>
+    <div class="lead">Das Nachzählen und die Springer-Suche fressen die Zeit.</div>
+    <p class="sub2">Dienstplan-Wächter löst genau den Papier-Schritt davor – nicht die Abrechnung, sondern das faire, gesetzeskonforme Planen.</p>
+    <div class="cards">
+      <div class="card"><div class="ic">🔁</div><h3>Einspringer-Finder</h3><p>Bei Krankmeldung zeigt das Tool, wer passt – ohne Ruhezeit-, Quali- oder Wunschfrei-Konflikt.</p></div>
+      <div class="card"><div class="ic">⚖️</div><h3>Gesetz-Wächter</h3><p>Warnt bei zu kurzer Ruhezeit nach Nachtdiensten (§5 ArbZG, einstellbar) – auch über den Monatswechsel.</p></div>
+      <div class="card"><div class="ic">📊</div><h3>Stunden- & Urlaubskonto</h3><p>Soll/Ist, Übertrag und Resturlaub rechnen sich automatisch – kein Nachzählen mehr.</p></div>
+      <div class="card"><div class="ic">🖨️</div><h3>Sauberer Ausdruck</h3><p>Monatsplan im Querformat mit Feiertagen, Stundenkonto und Unterschriftszeile – fertig zum Aushängen.</p></div>
+    </div>
+  </section>
+
+  <section id="preis">
+    <div class="eyebrow">Preis pro Standort</div>
+    <div class="lead">Transparent, kündbar, ohne Setup-Gebühr.</div>
+    <p class="sub2">Erst kostenlos testen. Pro Einrichtung lizenziert – die Anzahl der Standorte stellst du beim Bezahlen selbst ein.</p>
+    <div class="prices">
+      <div class="price">
+        <div class="amt">39&nbsp;€<small> / Monat</small></div>
+        <div class="per">pro Standort · monatlich kündbar</div>
+        <ul>
+          <li>Voller Funktionsumfang</li>
+          <li>Updates inklusive</li>
+          <li>Lizenzschlüssel per E-Mail</li>
+        </ul>
+        <div class="buy">
+          <a class="btn btn-ghost" href="https://buy.stripe.com/aFa5kF1R80vw2kg1Sm4F6gsD" target="_blank" rel="noopener">Monatlich buchen →</a>
+          <div class="qr"><img alt="QR-Code zur monatlichen Zahlung" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALkAAAC5AQMAAABOYwwfAAAABlBMVEULEiD///91DATCAAABn0lEQVR42uVYO26FMBBcQuGSI/gmcDEkI3Ex3k18BJcuEJuZhSRN0kVTJBRPtigG73x2/cy/fzb7+y8OM0uxebVS3Rv2g29v9sPziy/MX4BNxE3XdOIzWsFnyMCb5XTYWKMGNrTVkhrcMiqwV2zl4N7W3Gcr1RYtODmHzDJWZyb7Qs5D7Sh2/vhRqv1xGWuPpy+PB4VlP2zNBs49XUG87ORtdD+m3WOFk58mBKfMjgkVh8Vv1evAH1wj5O42TxvTVlf2Cnl7ZdJwW/AtQqvlblPU/uTKq9JqJyMNyXpRddR913Fu5dZa/+JcGa8VFseKJ0ftNxPGKyDRU2BxI/sDOruQ80j0x93GzxCCv+5uinyJpg7BSX1ePHxOdxuspuWc7kaxUwwxHCqTsKtB45gdc4xvzHbT+ZytvC/t6ewxUOkEd9ydxCNfcvhNN0x83hdw/JHSO5Un5wwX8ws5j6BN2jHq4qWBK55cqXbOjox1jOzlvra4GBzZHhMUQyaLbyzkPCxOXOuDmnPQTcfP941ZemNhqD79fPe+SH3+D/8WeQcvd41saCplcAAAAABJRU5ErkJggg=="><span>Mit dem Handy<br>scannen &amp; zahlen</span></div>
+        </div>
+      </div>
+      <div class="price best">
+        <div class="tag">2 Monate gratis</div>
+        <div class="amt">390&nbsp;€<small> / Jahr</small></div>
+        <div class="per">pro Standort · entspricht 32,50 €/Monat</div>
+        <ul>
+          <li>Alles aus Monatlich</li>
+          <li>Günstigster Preis</li>
+          <li>Eine Rechnung im Jahr</li>
+        </ul>
+        <div class="buy">
+          <a class="btn btn-primary" href="https://buy.stripe.com/5kQ3cx7bsemmbUQ1Sm4F6gsE" target="_blank" rel="noopener">Jährlich buchen →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <div><b>AIITEC · Rudolf Sarkany</b> — ehrliche digitale Helfer für die Pflege.</div>
+    <div class="k">
+      <span>☎ <span class="sel">+49 176 22890860</span></span>
+      <span>✉ <span class="sel">aiitecbuuss@gmail.com</span></span>
+      <span>🌐 www.aiitec.online</span>
+    </div>
+    <div style="margin-top:10px;font-size:12px;opacity:.8">Hilfe &amp; Fairness, kein Rechtsgutachten · Kleinunternehmer gem. §19 UStG · Uttinger Str. 3, 86923 Finning</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var names=["Timea","Alex","Kim","Sam","Dana"];
+  var days=["Mo","Di","Mi","Do","Fr","Sa","So"];
+  var plan=[
+    ["N","N","f","f","T","T","u"],
+    ["T","T","N","N","f","f","T"],
+    ["f","T","T","f","N","N","f"],
+    ["T","f","f","T","T","u","u"],
+    ["f","f","T","T","f","T","T"]
+  ];
+  var cls={T:"f",N:"n",f:"",u:"u"}, label={T:"T",N:"N",f:"frei",u:"U"};
+  var g=document.getElementById('grid');
+  if(!g) return;
+  // Kopfzeile
+  var frag=document.createDocumentFragment();
+  var corner=document.createElement('div');corner.className='gc head';frag.appendChild(corner);
+  days.forEach(function(d){var c=document.createElement('div');c.className='gc head';c.textContent=d;frag.appendChild(c);});
+  var cells=[];
+  names.forEach(function(nm,r){
+    var n=document.createElement('div');n.className='gc name';n.textContent=nm;frag.appendChild(n);
+    for(var d=0;d<7;d++){
+      var code=plan[r][d];
+      var c=document.createElement('div');
+      c.className='gc '+cls[code];
+      c.dataset.txt=label[code];
+      cells.push(c);frag.appendChild(c);
+    }
+  });
+  g.appendChild(frag);
+  var warn=document.getElementById('bn-warn'), ok=document.getElementById('bn-ok');
+  function fillAll(instant){
+    cells.forEach(function(c,i){
+      if(instant){c.textContent=c.dataset.txt;return;}
+      c.textContent='';c.classList.remove('fill');
+    });
+  }
+  function run(){
+    fillAll(false); warn.classList.remove('show'); ok.classList.remove('show');
+    if(reduce){fillAll(true);warn.classList.add('show');ok.classList.add('show');return;}
+    cells.forEach(function(c,i){
+      setTimeout(function(){
+        c.textContent=c.dataset.txt;
+        c.classList.add('fill');
+      }, 90*i);
+    });
+    var total=90*cells.length;
+    setTimeout(function(){warn.classList.add('show');}, total+250);
+    setTimeout(function(){ok.classList.add('show');}, total+1500);
+    setTimeout(run, total+4200);
+  }
+  run();
+})();
+</script>
+
+</body>
+</html>
