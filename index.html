@@ -201,7 +201,7 @@
     <datalist id="vertragListe"><option>Vollzeit</option><option>Teilzeit</option><option>Minijob</option><option>Geteilt</option></datalist>
     <div class="tabscroll"><table class="teamtab"><thead><tr>
       <th style="width:130px">Name</th><th style="width:110px">Vertrag</th><th style="width:80px">Soll-h</th>
-      <th style="width:60px">Springer</th><th>Qualifikationen</th><th style="width:95px">Wunschfrei</th><th style="width:95px">Urlaub</th><th style="width:120px">Urlaub/Jahr · Rest</th><th style="width:40px"></th>
+      <th style="width:60px">Springer</th><th>Qualifikationen</th><th style="width:95px">Wunschfrei</th><th style="width:95px">Urlaub</th><th style="width:120px">Urlaub/Jahr · Rest</th><th style="width:150px" title="Persönliche Grenzen. Leer = Wert aus den Einstellungen (Team). Gilt, wenn die jeweilige Regel in den Einstellungen eingeschaltet ist.">Max. in Folge<br><span style="font-weight:400;font-size:11px">Dienste · Tag · Nacht</span></th><th style="width:40px"></th>
     </tr></thead><tbody id="teamBody"></tbody></table></div>
     <div style="margin-top:10px"><button onclick="teamZeile()">+ Mitarbeiter</button></div>
   </div>
@@ -261,7 +261,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z2</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z3</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -312,7 +312,7 @@ function stdEinstellungen(){ return {
   dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
   folge:{an:true,maxFolge:3}, tagFolge:{an:true,max:3}, nachtFolge:{an:true,max:2}, verteilung:{an:true,tagMin:7,tagMax:8,nachtMin:7,nachtMax:8}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
 };}
-function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
+function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0, regel:{folge:null,tag:null,nacht:null}}; }
 let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:pflegeSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
 
 /* ---------- Helfer ---------- */
@@ -481,43 +481,49 @@ function pruefeDienstdauer(maxH){
     if(istArbeit(art) && dauer(art)>maxH) out.push({schwere:"GESETZ",mitarbeiter:m.name,tag,text:`${nm(art)} dauert ${dauer(art)} h — über ${maxH} h Höchstarbeitszeit (§ 3 ArbZG, nur mit Ausgleich zulässig).`});
   return out;
 }
-function pruefeDiensteInFolge(maxFolge){
+function pruefeDiensteInFolge(maxStd){
   const out=[];
   for(const m of state.team){
+    const maxFolge=grenze(m,'folge',maxStd);
     const tage=dienste(m.id).filter(([,a])=>istArbeit(a)).map(([t])=>t); let i=0;
     while(i<tage.length){
       let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
       const len=j-i+1;
-      if(len>maxFolge) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Dienste am Stück (${tage[i].split('-').reverse().join('.')}–${tage[j].split('-').reverse().join('.')}) — erlaubt sind max. ${maxFolge} Dienste in Folge, danach frei.`});
+      if(len>maxFolge) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Dienste am Stück (${tage[i].split('-').reverse().join('.')}–${tage[j].split('-').reverse().join('.')}) — erlaubt sind max. ${maxFolge} Dienste in Folge${(m.regel&&m.regel.folge)?' (persönliche Grenze)':''}, danach frei.`});
       i=j+1;
     }
   }
   return out;
 }
+function regelNorm(r){ const p=v=>{ const n=parseInt(v,10); return (Number.isFinite(n)&&n>=1)?n:null; }; r=(r&&typeof r==='object')?r:{}; return {folge:p(r.folge), tag:p(r.tag), nacht:p(r.nacht)}; }
+// individuelle Grenze je Mitarbeiter (leer = Team-Einstellung)
+function grenze(m,k,std){ const v=m&&m.regel?+m.regel[k]:NaN; return (Number.isFinite(v)&&v>=1)?v:std; }
 function istTagdienst(id){ const d=def(id); return !!d && d.arbeit!==false && !d.nacht && (+d.dauer||0)>=8; }   // Tagdienst = Arbeitsdienst ohne Nacht, ab 8 h
 function istVollzeit(m){ return /vollzeit/i.test(m.vertrag||''); }
 function tagdiensteMonat(id){ return dienste(id).filter(([t,a])=>istTagdienst(a)&&imMonat(t)).length; }
-function pruefeTagdiensteInFolge(max){
+function pruefeTagdiensteInFolge(maxStd){
   const out=[];
   for(const m of state.team){
+    const max=grenze(m,'tag',maxStd);
     const tage=dienste(m.id).filter(([,a])=>istTagdienst(a)).map(([t])=>t); let i=0;
     while(i<tage.length){
       let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
       const len=j-i+1;
-      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Tagdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Tagdienste in Folge.`});
+      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Tagdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Tagdienste in Folge${(m.regel&&m.regel.tag)?' (persönliche Grenze)':''}.`});
       i=j+1;
     }
   }
   return out;
 }
-function pruefeNaechteInFolge(max){
+function pruefeNaechteInFolge(maxStd){
   const out=[];
   for(const m of state.team){
+    const max=grenze(m,'nacht',maxStd);
     const tage=dienste(m.id).filter(([,a])=>istNacht(a)).map(([t])=>t); let i=0;
     while(i<tage.length){
       let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
       const len=j-i+1;
-      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Nachtdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Nachtdienste in Folge.`});
+      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Nachtdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Nachtdienste in Folge${(m.regel&&m.regel.nacht)?' (persönliche Grenze)':''}.`});
       i=j+1;
     }
   }
@@ -678,7 +684,7 @@ function normalisieren(s){
   s.einstellungen=de;
   const vMap={VOLLZEIT:'Vollzeit',TEILZEIT:'Teilzeit',MINIJOB:'Minijob',GETEILT:'Geteilt'};
   s.team = (Array.isArray(s.team)?s.team:[]).map(m=>{ const id=m.id||uid();
-    return {id, name:m.name||"", vertrag:(vMap[m.vertrag]||m.vertrag||"Vollzeit"), soll_stunden:+m.soll_stunden||0, springer:!!m.springer, qualifikationen:Array.isArray(m.qualifikationen)?m.qualifikationen:[], wunschfrei:Array.isArray(m.wunschfrei)?m.wunschfrei:[], urlaub:Array.isArray(m.urlaub)?m.urlaub:[], urlaubAnspruch:(m.urlaubAnspruch==null?30:(+m.urlaubAnspruch||0)), uebertrag:(Number.isFinite(+m.uebertrag)?+m.uebertrag:0)}; });
+    return {id, name:m.name||"", vertrag:(vMap[m.vertrag]||m.vertrag||"Vollzeit"), soll_stunden:+m.soll_stunden||0, springer:!!m.springer, qualifikationen:Array.isArray(m.qualifikationen)?m.qualifikationen:[], wunschfrei:Array.isArray(m.wunschfrei)?m.wunschfrei:[], urlaub:Array.isArray(m.urlaub)?m.urlaub:[], urlaubAnspruch:(m.urlaubAnspruch==null?30:(+m.urlaubAnspruch||0)), uebertrag:(Number.isFinite(+m.uebertrag)?+m.uebertrag:0), regel:regelNorm(m.regel)}; });
   s.plan = (s.plan && typeof s.plan==='object') ? s.plan : {};
   s.patienten = Array.isArray(s.patienten) ? s.patienten.map(p=>({id:p.id||uid(), name:p.name||'', farbe:p.farbe||'#e08a1e'})) : [];
   s.zuordnung = (s.zuordnung && typeof s.zuordnung==='object') ? s.zuordnung : {};
@@ -826,7 +832,7 @@ function renderEinstellungen(){
   ];
   box.innerHTML=rows.map(r=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)">${r}</div>`).join("");
   box.querySelectorAll('[data-tog]').forEach(c=>c.onchange=ev=>{ e[ev.target.dataset.tog].an=ev.target.checked; speichernLokal(); });
-  box.querySelectorAll('[data-num]').forEach(inp=>inp.onchange=ev=>{ const [k,f]=ev.target.dataset.num.split('.'); const min=+ev.target.dataset.min; const v=valNum(ev.target,min,e[k][f]); if(v==null)return; e[k][f]=v; speichernLokal(); });
+  box.querySelectorAll('[data-num]').forEach(inp=>inp.onchange=ev=>{ const [k,f]=ev.target.dataset.num.split('.'); const min=+ev.target.dataset.min; const v=valNum(ev.target,min,e[k][f]); if(v==null)return; e[k][f]=v; if(/Folge$/.test(k)||k==='folge') renderTeam(); speichernLokal(); });
 }
 
 /* Team — Wunschfrei/Urlaub als volle ISO-Daten, Eingabe als Tage des Monats */
@@ -852,6 +858,7 @@ function renderTeam(){
       <td><input value="${esc(tageImFeld(m,'wunschfrei'))}" placeholder="8, 15"></td>
       <td><input value="${esc(tageImFeld(m,'urlaub'))}" placeholder="5, 6"></td>
       <td><input type="number" min="0" value="${urlaubAnspruchVon(m)}" style="width:50px" title="Urlaubsanspruch pro Jahr (Tage)"> <span style="font-size:12px;font-weight:600;color:${urlaubRest(m)<0?'var(--krank)':'var(--dim)'}">Rest ${urlaubRest(m)}</span></td>
+      <td style="white-space:nowrap">${['folge','tag','nacht'].map(k=>`<input type="number" min="1" step="1" data-r="${k}" value="${(m.regel&&m.regel[k])||''}" placeholder="${k==='folge'?state.einstellungen.folge.maxFolge:k==='tag'?state.einstellungen.tagFolge.max:state.einstellungen.nachtFolge.max}" title="${k==='folge'?'Max. Dienste in Folge':k==='tag'?'Max. Tagdienste in Folge':'Max. Nachtdienste in Folge'} – leer = Team-Wert" style="width:40px">`).join(' ')}</td>
       <td><button onclick="teamLoeschen('${m.id}')">✕</button></td>`;
     const [nmI,ver,soll,spr,qu,wf,ur,ua]=tr.querySelectorAll("input,select");
     nmI.oninput=e=>{ m.name=e.target.value; renderGrid(); speichernLokal(); };
@@ -863,6 +870,7 @@ function renderTeam(){
     ur.oninput=e=>{ setTageImFeld(m,'urlaub',e.target.value); renderGrid(); speichernLokal(); };
     ur.onchange=()=>renderTeam();
     ua.onchange=e=>{ const v=valNum(e.target,0,urlaubAnspruchVon(m)); if(v==null)return; m.urlaubAnspruch=v; renderTeam(); speichernLokal(); };
+    tr.querySelectorAll('[data-r]').forEach(inp=>inp.onchange=e=>{ m.regel=regelNorm(Object.assign({}, m.regel, {[e.target.dataset.r]: e.target.value})); e.target.value=m.regel[e.target.dataset.r]||''; protokolliere('Persönliche Grenze geändert: '+(m.name||'?')+' · '+e.target.title.split(' –')[0]+' = '+(m.regel[e.target.dataset.r]||'Team-Wert')); speichernLokal(); });
     tb.appendChild(tr);
   });
 }
