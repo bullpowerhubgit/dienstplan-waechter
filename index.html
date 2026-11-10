@@ -261,7 +261,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-X</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Y</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -310,7 +310,7 @@ function pflegeSchichtarten(){ return [
 function stdEinstellungen(){ return {
   qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
   dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
-  folge:{an:false,maxFolge:6}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
+  folge:{an:true,maxFolge:6}, tagFolge:{an:true,max:3}, verteilung:{an:true,tagMin:7,tagMax:8,nachtMin:7,nachtMax:8}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
 };}
 function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
 let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:pflegeSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
@@ -494,6 +494,34 @@ function pruefeDiensteInFolge(maxFolge){
   }
   return out;
 }
+function istTagdienst(id){ const d=def(id); return !!d && d.arbeit!==false && !d.nacht && (+d.dauer||0)>=8; }   // Tagdienst = Arbeitsdienst ohne Nacht, ab 8 h
+function istVollzeit(m){ return /vollzeit/i.test(m.vertrag||''); }
+function tagdiensteMonat(id){ return dienste(id).filter(([t,a])=>istTagdienst(a)&&imMonat(t)).length; }
+function pruefeTagdiensteInFolge(max){
+  const out=[];
+  for(const m of state.team){
+    const tage=dienste(m.id).filter(([,a])=>istTagdienst(a)).map(([t])=>t); let i=0;
+    while(i<tage.length){
+      let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
+      const len=j-i+1;
+      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Tagdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Tagdienste in Folge.`});
+      i=j+1;
+    }
+  }
+  return out;
+}
+function pruefeVerteilung(v){
+  const out=[];
+  for(const m of state.team){ if(!m.name || !istVollzeit(m)) continue;
+    if(!dienste(m.id).some(([t,a])=>istArbeit(a)&&imMonat(t))) continue;
+    const t=tagdiensteMonat(m.id), n=naechteMonat(m.id), teile=[];
+    if(t<v.tagMin || t>v.tagMax) teile.push(`${t} Tagdienste (Ziel ${v.tagMin}–${v.tagMax})`);
+    if(n<v.nachtMin || n>v.nachtMax) teile.push(`${n} Nachtdienste (Ziel ${v.nachtMin}–${v.nachtMax})`);
+    const abw=(m.urlaub||[]).filter(imMonat).length + dienste(m.id).filter(([tt,a])=>imMonat(tt)&&(a==='KRANK'||a==='URLAUB')).length;
+    if(teile.length) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:null,text:`Vollzeit: ${teile.join(', ')} im Monat.`+(abw?` (Hinweis: ${abw} Urlaubs-/Kranktag(e) im Monat — Abweichung kann gewollt sein.)`:'')});
+  }
+  return out;
+}
 function pruefeMindestbesetzung(){
   const out=[]; const [j,m]=state.monat, tage=tageImMonat(j,m);
   for(const s of state.schichtarten){
@@ -537,6 +565,8 @@ function pruefeAlles(){
   if(e.nachtfair.an) v.push(...pruefeNachtFairness(e.nachtfair.maxAbstand));
   if(e.dienstdauer.an) v.push(...pruefeDienstdauer(e.dienstdauer.maxH));
   if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
+  if(e.tagFolge.an) v.push(...pruefeTagdiensteInFolge(e.tagFolge.max));
+  if(e.verteilung.an) v.push(...pruefeVerteilung(e.verteilung));
   if(e.mindestbesetzung.an) v.push(...pruefeMindestbesetzung());
   const o={GESETZ:0,FAIRNESS:1,HINWEIS:2};
   v.sort((a,b)=> o[a.schwere]-o[b.schwere] || (a.tag||"9999").localeCompare(b.tag||"9999"));
@@ -549,13 +579,14 @@ function ueberschneidet(isoA,artA,isoB,artB){ const aS=sStart(isoA,artA),aE=sEnd
 function probeKonflikte(m, tag, art){
   const e=state.einstellungen, r=state.min_ruhe_h;
   const origPlan = state.plan[m.id], origTeam = state.team;
-  let gesetz=[], warn=[];
+  let gesetz=[], warn=[], folgeNeu=[];
   try{
     state.team=[m];
     const run=()=>{ let v=[...pruefeRuhezeit(r)];
       if(e.stunden.an) v.push(...pruefeStunden(e.stunden.toleranz));
       if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
       if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
+      if(e.tagFolge.an) v.push(...pruefeTagdiensteInFolge(e.tagFolge.max));
       return v; };
     const vorher=run();                                   // bestehende Konflikte OHNE die Vertretung
     state.plan[m.id]=Object.assign({}, origPlan||{}, {[tag]:art});
@@ -565,16 +596,17 @@ function probeKonflikte(m, tag, art){
     const vs=new Set(vorher.map(schluessel));
     const neu=nachher.filter(x=> !vs.has(schluessel(x)));          // NUR neu verursachte
     gesetz=[...new Set([...neu.filter(x=>x.schwere==='GESETZ').map(x=>x.text), ...overlap])];
-    warn=[...new Set(neu.filter(x=>x.schwere==='HINWEIS').map(x=>x.text))];
+    warn=[...new Set(neu.filter(x=>x.schwere==='HINWEIS'||x.schwere==='FAIRNESS').map(x=>x.text))];
+    folgeNeu=[...new Set(neu.filter(x=>/in Folge/.test(x.text)).map(x=>x.text))];
     if(e.dienstdauer.an && istArbeit(art) && dauer(art)>e.dienstdauer.maxH) warn.push(`${nm(art)} dauert ${dauer(art)} h — über ${e.dienstdauer.maxH} h (§ 3 ArbZG; in der Pflege mit Ausgleich/Tarif möglich — bitte prüfen).`);
   } finally {
     state.team=origTeam;
     if(origPlan===undefined) delete state.plan[m.id]; else state.plan[m.id]=origPlan;
   }
-  return { konflikte:gesetz, warnungen:warn };
+  return { konflikte:gesetz, warnungen:warn, folge:folgeNeu };
 }
-function werKannEinspringen(tag, art){
-  const d=def(art); const geeignet=[], abgelehnt=[];
+function werKannEinspringen(tag, art, streng){
+  const d=def(art); const e=state.einstellungen; const geeignet=[], abgelehnt=[];
   for(const m of state.team){
     if(!m.name) continue;
     const heute=(state.plan[m.id]||{})[tag];
@@ -587,10 +619,19 @@ function werKannEinspringen(tag, art){
     if(d.qual && !quals(m).includes(d.qual.toLowerCase())){ abgelehnt.push(`⛔ ${m.name}: Qualifikation „${d.qual}" fehlt.`); continue; }
     const res = probeKonflikte(m, tag, art);
     if(res.konflikte.length){ abgelehnt.push(`⛔ ${m.name}: ${res.konflikte.join('; ')}`); continue; }
+    const regel=[...(res.folge||[])]; let unterZiel=false;
+    if(e.verteilung.an && istVollzeit(m) && imMonat(tag)){
+      const v=e.verteilung;
+      if(istTagdienst(art)){ const c=tagdiensteMonat(m.id); if(c>=v.tagMax) regel.push(`hat schon ${c} Tagdienste im Monat (Vollzeit max. ${v.tagMax}).`); if(c<v.tagMin) unterZiel=true; }
+      if(istNacht(art)){ const c=naechteMonat(m.id); if(c>=v.nachtMax) regel.push(`hat schon ${c} Nachtdienste im Monat (Vollzeit max. ${v.nachtMax}).`); if(c<v.nachtMin) unterZiel=true; }
+    }
+    if(streng && regel.length){ abgelehnt.push(`⛔ ${m.name}: ${regel.join('; ')}`); continue; }
     const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id);
-    geeignet.push({id:m.id, name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen:res.warnungen||[]});
+    const warnungen=[...new Set([...(res.warnungen||[]), ...regel])];
+    const typAnzahl = istNacht(art) ? naechteMonat(m.id) : (istTagdienst(art) ? tagdiensteMonat(m.id) : 0);
+    geeignet.push({id:m.id, name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen, regelBruch:regel.length>0, unterZiel, typAnzahl});
   }
-  geeignet.sort((a,b)=> (b.springer-a.springer) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
+  geeignet.sort((a,b)=> (a.regelBruch-b.regelBruch) || (b.springer-a.springer) || (b.unterZiel-a.unterZiel) || (streng ? (a.typAnzahl-b.typAnzahl) : 0) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
   return {geeignet,abgelehnt};
 }
 
@@ -615,6 +656,7 @@ function normalisieren(s){
   // Einstellungen tief zusammenführen, damit unvollständige Unterobjekte keine Standardfelder verdrängen
   const de=stdEinstellungen(), se=(s.einstellungen && typeof s.einstellungen==='object')?s.einstellungen:{};
   for(const k in de){ de[k]=Object.assign({}, de[k], (se[k] && typeof se[k]==='object')?se[k]:{}); }
+  if(se && Object.keys(se).length && !se.tagFolge) de.folge.an=true;   // Update 11/2026: 'Dienste in Folge' bei bestehenden Plänen einschalten
   s.einstellungen=de;
   const vMap={VOLLZEIT:'Vollzeit',TEILZEIT:'Teilzeit',MINIJOB:'Minijob',GETEILT:'Geteilt'};
   s.team = (Array.isArray(s.team)?s.team:[]).map(m=>{ const id=m.id||uid();
@@ -757,7 +799,9 @@ function renderEinstellungen(){
     estTog('dienstdauer','Max. Dienstdauer (Gesetz)')+estNum('dienstdauer','maxH','Stunden',1),
     estTog('nachtfair','Nacht-Fairness (Zuschläge)')+estNum('nachtfair','maxAbstand','max. Abstand',0),
     estTog('stunden','Soll-Stunden-Abgleich')+estNum('stunden','toleranz','Toleranz h',0),
-    estTog('folge','Max. Dienste in Folge')+estNum('folge','maxFolge','max. Tage',1),
+    estTog('folge','Max. Dienste in Folge (alle Dienste)')+estNum('folge','maxFolge','max. Tage',1),
+    estTog('tagFolge','Max. Tagdienste in Folge (Tagdienst = Dienst ohne Nacht, ab 8 h)')+estNum('tagFolge','max','max. Tage',1),
+    estTog('verteilung','Vollzeit: Anzahl Tag- und Nachtdienste pro Monat')+estNum('verteilung','tagMin','Tag min',0)+estNum('verteilung','tagMax','Tag max',0)+estNum('verteilung','nachtMin','Nacht min',0)+estNum('verteilung','nachtMax','Nacht max',0),
     estTog('pflegeAusnahme','Pflege-Ausnahme § 5 Abs. 2 ArbZG: Ruhezeit bis 1 h kürzer erlaubt, wenn sie innerhalb des Zeitraums durch eine Ruhezeit von mind. „Ausgleich h“ ausgeglichen wird (nur wenn Tarif/Dienstvereinbarung das vorsieht)')+estNum('pflegeAusnahme','ausgleichH','Ausgleich h',11)+estNum('pflegeAusnahme','zeitraumTage','Zeitraum Tage',1),
     estTog('mindestbesetzung','Unbesetzte Dienste melden (setze bei jeder Schichtart die Spalte „Mind." auf die Anzahl, die täglich besetzt sein muss)'),
   ];
@@ -1164,7 +1208,7 @@ function autoFuellen(zufall){
       let schutz=0;
       while(anz<min && schutz<80){
         schutz++;
-        const {geeignet}=werKannEinspringen(is, s.id);
+        const {geeignet}=werKannEinspringen(is, s.id, true);
         const frei=geeignet.filter(g=>!((state.plan[g.id]||{})[is]));  // nur wirklich LEERE Zellen füllen – FREI/alles bleibt
         if(!frei.length){ offen+=(min-anz); break; }
         const pick=frei[ zufall ? Math.floor(Math.random()*Math.min(2,frei.length)) : 0 ];
@@ -1176,7 +1220,7 @@ function autoFuellen(zufall){
     }
   }
   protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
-  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit</b> wurden respektiert. Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tagdienste in Folge und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
 
 /* Datei / CSV / Beispiel / leeren */
