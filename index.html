@@ -261,7 +261,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Y</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -310,7 +310,7 @@ function pflegeSchichtarten(){ return [
 function stdEinstellungen(){ return {
   qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
   dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
-  folge:{an:true,maxFolge:6}, tagFolge:{an:true,max:3}, verteilung:{an:true,tagMin:7,tagMax:8,nachtMin:7,nachtMax:8}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
+  folge:{an:true,maxFolge:3}, tagFolge:{an:true,max:3}, nachtFolge:{an:true,max:2}, verteilung:{an:true,tagMin:7,tagMax:8,nachtMin:7,nachtMax:8}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
 };}
 function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
 let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:pflegeSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
@@ -488,7 +488,7 @@ function pruefeDiensteInFolge(maxFolge){
     while(i<tage.length){
       let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
       const len=j-i+1;
-      if(len>maxFolge) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:tage[i],text:`${len} Dienste am Stück (${tage[i].split('-').reverse().join('.')}–${tage[j].split('-').reverse().join('.')}) — über empfohlene ${maxFolge} in Folge.`});
+      if(len>maxFolge) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Dienste am Stück (${tage[i].split('-').reverse().join('.')}–${tage[j].split('-').reverse().join('.')}) — erlaubt sind max. ${maxFolge} Dienste in Folge, danach frei.`});
       i=j+1;
     }
   }
@@ -505,6 +505,19 @@ function pruefeTagdiensteInFolge(max){
       let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
       const len=j-i+1;
       if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Tagdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Tagdienste in Folge.`});
+      i=j+1;
+    }
+  }
+  return out;
+}
+function pruefeNaechteInFolge(max){
+  const out=[];
+  for(const m of state.team){
+    const tage=dienste(m.id).filter(([,a])=>istNacht(a)).map(([t])=>t); let i=0;
+    while(i<tage.length){
+      let j=i; while(j+1<tage.length && istFolgetag(tage[j],tage[j+1])) j++;
+      const len=j-i+1;
+      if(len>max) out.push({schwere:"FAIRNESS",mitarbeiter:m.name,tag:tage[i],text:`${len} Nachtdienste am Stück (${dmy(tage[i])}–${dmy(tage[j])}) — erlaubt sind max. ${max} Nachtdienste in Folge.`});
       i=j+1;
     }
   }
@@ -566,6 +579,7 @@ function pruefeAlles(){
   if(e.dienstdauer.an) v.push(...pruefeDienstdauer(e.dienstdauer.maxH));
   if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
   if(e.tagFolge.an) v.push(...pruefeTagdiensteInFolge(e.tagFolge.max));
+  if(e.nachtFolge.an) v.push(...pruefeNaechteInFolge(e.nachtFolge.max));
   if(e.verteilung.an) v.push(...pruefeVerteilung(e.verteilung));
   if(e.mindestbesetzung.an) v.push(...pruefeMindestbesetzung());
   const o={GESETZ:0,FAIRNESS:1,HINWEIS:2};
@@ -587,6 +601,7 @@ function probeKonflikte(m, tag, art){
       if(e.ruhetage.an) v.push(...pruefeRuhetageNachNacht(e.ruhetage.minFrei));
       if(e.folge.an) v.push(...pruefeDiensteInFolge(e.folge.maxFolge));
       if(e.tagFolge.an) v.push(...pruefeTagdiensteInFolge(e.tagFolge.max));
+      if(e.nachtFolge.an) v.push(...pruefeNaechteInFolge(e.nachtFolge.max));
       return v; };
     const vorher=run();                                   // bestehende Konflikte OHNE die Vertretung
     state.plan[m.id]=Object.assign({}, origPlan||{}, {[tag]:art});
@@ -628,10 +643,12 @@ function werKannEinspringen(tag, art, streng){
     if(streng && regel.length){ abgelehnt.push(`⛔ ${m.name}: ${regel.join('; ')}`); continue; }
     const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id);
     const warnungen=[...new Set([...(res.warnungen||[]), ...regel])];
+    const [gy,gm,gd]=teile(tag), gDt=new Date(gy,gm-1,gd-1), gestern=iso(gDt.getFullYear(),gDt.getMonth()+1,gDt.getDate());
+    const fortsetzen = istArbeit((state.plan[m.id]||{})[gestern]) ? 1 : 0;   // Block weiterführen (z. B. T,T,N) statt zerstückeln
     const typAnzahl = istNacht(art) ? naechteMonat(m.id) : (istTagdienst(art) ? tagdiensteMonat(m.id) : 0);
-    geeignet.push({id:m.id, name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen, regelBruch:regel.length>0, unterZiel, typAnzahl});
+    geeignet.push({id:m.id, name:m.name, springer:!!m.springer, naechte:naechteMonat(m.id), rest:soll-ist, auslastung: soll>0?ist/soll:1, grund:m.vertrag||'', warnungen, regelBruch:regel.length>0, unterZiel, typAnzahl, fortsetzen});
   }
-  geeignet.sort((a,b)=> (a.regelBruch-b.regelBruch) || (b.springer-a.springer) || (b.unterZiel-a.unterZiel) || (streng ? (a.typAnzahl-b.typAnzahl) : 0) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
+  geeignet.sort((a,b)=> (a.regelBruch-b.regelBruch) || (b.springer-a.springer) || (b.unterZiel-a.unterZiel) || (streng ? (b.fortsetzen-a.fortsetzen) : 0) || (streng ? (a.typAnzahl-b.typAnzahl) : 0) || (a.auslastung-b.auslastung) || (a.naechte-b.naechte));
   return {geeignet,abgelehnt};
 }
 
@@ -657,6 +674,7 @@ function normalisieren(s){
   const de=stdEinstellungen(), se=(s.einstellungen && typeof s.einstellungen==='object')?s.einstellungen:{};
   for(const k in de){ de[k]=Object.assign({}, de[k], (se[k] && typeof se[k]==='object')?se[k]:{}); }
   if(se && Object.keys(se).length && !se.tagFolge) de.folge.an=true;   // Update 11/2026: 'Dienste in Folge' bei bestehenden Plänen einschalten
+  if(se && Object.keys(se).length && !se.nachtFolge){ de.folge.an=true; if(+de.folge.maxFolge===6) de.folge.maxFolge=3; }   // Update v-Z: alter Standard 6 → 3 (T,T,N,Frei)
   s.einstellungen=de;
   const vMap={VOLLZEIT:'Vollzeit',TEILZEIT:'Teilzeit',MINIJOB:'Minijob',GETEILT:'Geteilt'};
   s.team = (Array.isArray(s.team)?s.team:[]).map(m=>{ const id=m.id||uid();
@@ -801,6 +819,7 @@ function renderEinstellungen(){
     estTog('stunden','Soll-Stunden-Abgleich')+estNum('stunden','toleranz','Toleranz h',0),
     estTog('folge','Max. Dienste in Folge (alle Dienste)')+estNum('folge','maxFolge','max. Tage',1),
     estTog('tagFolge','Max. Tagdienste in Folge (Tagdienst = Dienst ohne Nacht, ab 8 h)')+estNum('tagFolge','max','max. Tage',1),
+    estTog('nachtFolge','Max. Nachtdienste in Folge')+estNum('nachtFolge','max','max. Nächte',1),
     estTog('verteilung','Vollzeit: Anzahl Tag- und Nachtdienste pro Monat')+estNum('verteilung','tagMin','Tag min',0)+estNum('verteilung','tagMax','Tag max',0)+estNum('verteilung','nachtMin','Nacht min',0)+estNum('verteilung','nachtMax','Nacht max',0),
     estTog('pflegeAusnahme','Pflege-Ausnahme § 5 Abs. 2 ArbZG: Ruhezeit bis 1 h kürzer erlaubt, wenn sie innerhalb des Zeitraums durch eine Ruhezeit von mind. „Ausgleich h“ ausgeglichen wird (nur wenn Tarif/Dienstvereinbarung das vorsieht)')+estNum('pflegeAusnahme','ausgleichH','Ausgleich h',11)+estNum('pflegeAusnahme','zeitraumTage','Zeitraum Tage',1),
     estTog('mindestbesetzung','Unbesetzte Dienste melden (setze bei jeder Schichtart die Spalte „Mind." auf die Anzahl, die täglich besetzt sein muss)'),
@@ -1220,7 +1239,7 @@ function autoFuellen(zufall){
     }
   }
   protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
-  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tagdienste in Folge und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tag- und Nachtdienste in Folge und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
 
 /* Datei / CSV / Beispiel / leeren */
