@@ -56,7 +56,7 @@
   .legend span{display:inline-flex;align-items:center;gap:5px}
   .chip{width:14px;height:14px;border-radius:3px;display:inline-block}
   .ergebnis .item{border-left:4px solid var(--line);padding:7px 11px;margin:7px 0;background:var(--panel2);border-radius:0 7px 7px 0;font-size:14px}
-  .item.GESETZ{border-color:var(--gesetz)} .item.FAIRNESS{border-color:var(--fairness)} .item.HINWEIS{border-color:var(--hinweis)}
+  .item.GESETZ{border-color:var(--gesetz)} .item.FAIRNESS{border-color:var(--fairness)} .item.HINWEIS{border-color:var(--hinweis)} .item.LUECKE{border-color:var(--krank)} .badge.LUECKE{background:var(--krank)} td.offen{background:var(--krank)!important;color:#fff;font-weight:700;cursor:help} th.offen{box-shadow:inset 0 -4px 0 var(--krank)} tr.offenzeile td.pname{color:var(--krank);font-weight:700}
   .badge{font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:8px}
   .badge.GESETZ{background:var(--gesetz)} .badge.FAIRNESS{background:var(--fairness);color:#1a1200} .badge.HINWEIS{background:var(--hinweis)} .badge.SPR{background:#6b4ed9;margin-left:6px}
   .warnbanner{background:#2b2410;border:1px solid var(--warn);color:#f0d9a0;border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:13px}
@@ -224,6 +224,7 @@
     <p class="hint" style="margin-top:2px">Füllt <b>leere Pflichtdienste</b> (Schichtarten mit „Mind." ≥ 1) automatisch mit passenden, verfügbaren Personen — respektiert <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen), Ruhetage nach Nacht, Vollzeit-Verteilung</b> und <b>vorhandene Einträge</b> (überschreibt nichts). <b>Entwurf — bitte prüfen.</b></p>
     <div class="palette" id="palette"></div>
     <p class="hint" id="palettestatus" style="margin:0 0 6px">🖌 <b>Schicht-Palette:</b> einen Dienst antippen → dann Zellen antippen, um schnell zu füllen (wie bei IHM). „✖ Pinsel aus" = normales Menü.</p>
+    <div id="gridLueckenHinweis"></div>
     <div class="tabscroll"><table class="grid"><thead id="gridHead"></thead><tbody id="gridBody"></tbody></table></div>
     <div class="legend" id="legend"></div>
     <p class="hint" style="margin-top:12px"><b>Vor dem Drucken:</b> erst prüfen lassen (Gesetz/Fairness), dann drucken oder senden.</p>
@@ -262,7 +263,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z5</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z7</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -542,6 +543,10 @@ function pruefeVerteilung(v){
   }
   return out;
 }
+function pruefeLueckenListe(){ const out=[]; const [j,m]=state.monat, tage=tageImMonat(j,m);
+  for(const s of state.schichtarten){ const min=+s.minBesetzung||0; if(min<=0) continue; const bq=s.qual?s.qual.toLowerCase():null;
+    for(let d=1; d<=tage; d++){ const is=iso(j,m,d); let anz=0; for(const ma of state.team){ if((state.plan[ma.id]||{})[is]===s.id && (!bq||quals(ma).includes(bq))) anz++; } if(anz<min) out.push({d,s:s.id,fehlt:min-anz}); } }
+  return out; }
 function pruefeMindestbesetzung(){
   const out=[]; const [j,m]=state.monat, tage=tageImMonat(j,m);
   for(const s of state.schichtarten){
@@ -555,7 +560,7 @@ function pruefeMindestbesetzung(){
     }
     if(luecken.length){
       const tageTxt = luecken.length<=14 ? ('Tage: '+luecken.join(', ')) : (luecken.length+' Tage');
-      out.push({schwere:"HINWEIS",mitarbeiter:s.name,tag:null,text:`${s.name}${brauchtQual?' (qualifiziert)':''} an ${luecken.length} Tag(en) unter „Mind." ${min} besetzt (${tageTxt}).`});
+      out.push({schwere:"LUECKE",mitarbeiter:s.name,tag:null,text:`${s.name}${brauchtQual?' (qualifiziert)':''}: an ${luecken.length} Tag(en) NICHT besetzt (Mind. ${min}) — ${tageTxt}.`});
     }
   }
   return out;
@@ -588,8 +593,8 @@ function pruefeAlles(){
   if(e.tagFolge.an) v.push(...pruefeTagdiensteInFolge(e.tagFolge.max));
   if(e.nachtFolge.an) v.push(...pruefeNaechteInFolge(e.nachtFolge.max));
   if(e.verteilung.an) v.push(...pruefeVerteilung(e.verteilung));
-  if(e.mindestbesetzung.an) v.push(...pruefeMindestbesetzung());
-  const o={GESETZ:0,FAIRNESS:1,HINWEIS:2};
+  v.push(...pruefeMindestbesetzung());   // offene Pflichtdienste immer melden
+  const o={LUECKE:0,GESETZ:1,FAIRNESS:2,HINWEIS:3};
   v.sort((a,b)=> o[a.schwere]-o[b.schwere] || (a.tag||"9999").localeCompare(b.tag||"9999"));
   return v;
 }
@@ -647,7 +652,9 @@ function werKannEinspringen(tag, art, streng){
       if(istTagdienst(art)){ const c=tagdiensteMonat(m.id); if(c>=v.tagMax) regel.push(`hat schon ${c} Tagdienste im Monat (Vollzeit max. ${v.tagMax}).`); if(c<v.tagMin) unterZiel=true; }
       if(istNacht(art)){ const c=naechteMonat(m.id); if(c>=v.nachtMax) regel.push(`hat schon ${c} Nachtdienste im Monat (Vollzeit max. ${v.nachtMax}).`); if(c<v.nachtMin) unterZiel=true; }
     }
-    if(streng && regel.length){ abgelehnt.push(`⛔ ${m.name}: ${regel.join('; ')}`); continue; }
+    if(streng){ const lo=(typeof streng==='object')?streng:{};
+      const hart=regel.filter(t=> !(lo.ohneRuhetage && /zwischen Nacht-Ende/.test(t)) && !(lo.ohneMax && /Vollzeit max\./.test(t)));
+      if(hart.length){ abgelehnt.push(`⛔ ${m.name}: ${hart.join('; ')}`); continue; } }
     const soll=+m.soll_stunden||0, ist=istStundenMonat(m.id);
     const warnungen=[...new Set([...(res.warnungen||[]), ...regel])];
     const [gy,gm,gd]=teile(tag), gDt=new Date(gy,gm-1,gd-1), gestern=iso(gDt.getFullYear(),gDt.getMonth()+1,gDt.getDate());
@@ -829,7 +836,6 @@ function renderEinstellungen(){
     estTog('nachtFolge','Max. Nachtdienste in Folge')+estNum('nachtFolge','max','max. Nächte',1),
     estTog('verteilung','Vollzeit: Anzahl Tag- und Nachtdienste pro Monat')+estNum('verteilung','tagMin','Tag min',0)+estNum('verteilung','tagMax','Tag max',0)+estNum('verteilung','nachtMin','Nacht min',0)+estNum('verteilung','nachtMax','Nacht max',0),
     estTog('pflegeAusnahme','Pflege-Ausnahme § 5 Abs. 2 ArbZG: Ruhezeit bis 1 h kürzer erlaubt, wenn sie innerhalb des Zeitraums durch eine Ruhezeit von mind. „Ausgleich h“ ausgeglichen wird (nur wenn Tarif/Dienstvereinbarung das vorsieht)')+estNum('pflegeAusnahme','ausgleichH','Ausgleich h',11)+estNum('pflegeAusnahme','zeitraumTage','Zeitraum Tage',1),
-    estTog('mindestbesetzung','Unbesetzte Dienste melden (setze bei jeder Schichtart die Spalte „Mind." auf die Anzahl, die täglich besetzt sein muss)'),
   ];
   box.innerHTML=rows.map(r=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)">${r}</div>`).join("");
   box.querySelectorAll('[data-tog]').forEach(c=>c.onchange=ev=>{ e[ev.target.dataset.tog].an=ev.target.checked; speichernLokal(); });
@@ -932,6 +938,16 @@ function renderGrid(){
     }
     tr.innerHTML=row; tr.querySelectorAll("td.cell").forEach(td=>td.onclick=(e)=>{ e.stopPropagation(); if(aktiverPinsel!==null){ setZelle(td.dataset.id, td.dataset.iso, aktiverPinsel); } else { zelleKlick(td); } }); body.appendChild(tr);
   });
+  // offene Pflichtdienste sichtbar machen
+  const lk=pruefeLueckenListe(); const proTag={}; lk.forEach(x=>{ (proTag[x.d]=proTag[x.d]||[]).push(x); });
+  const hatMind=state.schichtarten.some(s=>(+s.minBesetzung||0)>0);
+  const ot=document.createElement('tr'); ot.className='offenzeile';
+  let orow=`<td class="pname" style="text-align:left" title="Pflichtdienste laut Spalte „Mind.“ bei den Schichtarten">${lk.length?'⚠ OFFEN':(hatMind?'✅ alles besetzt':'ℹ️ kein „Mind.“')}</td>`;
+  for(let d=1; d<=tage; d++){ const x=proTag[d]; orow+= x ? `<td class="offen" data-tag="${d}" title="Nicht besetzt: ${esc(x.map(y=>nm(y.s)+(y.fehlt>1?' ×'+y.fehlt:'')).join(', '))} — antippen für Vorschläge">${esc(x.map(y=>kuerzel(y.s)).join('+'))}</td>` : '<td></td>'; }
+  ot.innerHTML=orow; ot.querySelectorAll('td.offen').forEach(td=>td.onclick=()=>{ const x=proTag[+td.dataset.tag][0]; const sel=document.getElementById('einsArt'); if(sel) sel.value=x.s; vorschlagFuerTag(iso(j,m,+td.dataset.tag)); });
+  body.appendChild(ot);
+  head.querySelectorAll('th').forEach((th,i)=>{ if(i>0 && proTag[i]) th.classList.add('offen'); });
+  const gb=document.getElementById('gridLueckenHinweis'); if(gb) gb.innerHTML = lk.length ? `<div class="unterdeckung" style="margin:6px 0"><b>⚠️ ${lk.reduce((a,x)=>a+x.fehlt,0)} Pflichtdienst(e) nicht besetzt:</b> ${esc(lk.map(x=>kuerzel(x.s)+' '+x.d+'.').join(' · '))} — rote Felder in der Zeile „⚠ OFFEN“ antippen = Vorschläge, wer einspringen kann.</div>` : (hatMind?'':'<div class="mini" style="margin:6px 0;color:var(--fairness)">ℹ️ Bei keiner Schichtart ist „Mind.“ gesetzt — fehlende Dienste können nicht erkannt werden.</div>');
   renderStundenkonto(); renderDeckung();
 }
 const WTAG=['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -1124,6 +1140,7 @@ function druckDienstplan(){zaehle('drucken');
       h+=`<td class="${clsTag(d)}" style="${col?`background:${col};color:#fff;font-weight:700`:''}">${a?esc(kuerzel(a)):''}</td>`; }
     h+='</tr>';
   }
+  { const lkD=pruefeLueckenListe(); if(lkD.length){ const pt={}; lkD.forEach(x=>{(pt[x.d]=pt[x.d]||[]).push(kuerzel(x.s));}); h+='<tr><td class="nm" style="color:#c0392b">⚠ OFFEN</td>'; for(let d=1;d<=tage;d++) h+=pt[d]?`<td style="background:#c0392b;color:#fff;font-weight:700">${esc(pt[d].join('+'))}</td>`:'<td></td>'; h+='</tr>'; } }
   h+='</tbody></table>';
   h+='<p class="dleg">Legende: '+state.schichtarten.map(s=>esc(s.kuerzel+' = '+s.name)).join(' · ')+' · – = Frei · K = Krank · Url = Urlaub · WF = Wunschfrei'+(Object.keys(fei).length?' · rot = Feiertag':'')+' · grau = Wochenende · * = Springer</p>';
   h+='<h3 class="dsec">Stunden-Konto &amp; Urlaub</h3><table class="dkonto"><thead><tr><th class="nm">Mitarbeiter</th><th>Übertrag</th><th>Soll h</th><th>Ist (geplant)</th><th>+/-</th><th>Saldo</th><th>Urlaub-Rest</th></tr></thead><tbody>';
@@ -1176,9 +1193,9 @@ function pruefen(){zaehle('pruefen');
   const aus=deaktivierteKern();
   const banner = aus.length ? `<div class="warnbanner">⚠️ <b>Unvollständig geprüft</b> — abgeschaltet: ${esc(aus.join(', '))}. Ein grünes Ergebnis bedeutet <b>nicht</b> „alles sauber", sondern nur: keine Auffälligkeit in den <i>aktivierten</i> Prüfungen.</div>` : "";
   if(!v.length){ box.innerHTML=banner+`<span class="ok">✅ Keine Auffälligkeiten in den aktivierten Prüfungen.</span> <span class="mini">Nicht aktivierte Regeln und fehlende Daten bleiben unberücksichtigt.</span>`; box.scrollIntoView({behavior:'smooth',block:'center'}); return; }
-  const g=v.filter(x=>x.schwere==="GESETZ").length;
-  box.innerHTML=banner+`<p class="mini">${v.length} Punkt(e), davon <b>${g} GESETZ-kritisch</b>:</p>`+
-    v.map(x=>`<div class="item ${x.schwere}"><span class="badge ${x.schwere}">${x.schwere}</span><b>${esc(x.mitarbeiter)}</b>${x.tag?" · "+x.tag.split('-').reverse().join('.'):""}: ${esc(x.text)}</div>`).join("");
+  const g=v.filter(x=>x.schwere==="GESETZ").length, lk=pruefeLueckenListe().reduce((a,x)=>a+x.fehlt,0);
+  box.innerHTML=banner+(lk?`<div class="unterdeckung" style="margin-bottom:8px"><b>⚠️ ${lk} Pflichtdienst(e) NICHT besetzt</b> — im Plan rot markiert (Zeile „⚠ OFFEN").</div>`:`<p class="ok" style="margin:4px 0">✅ Alle Pflichtdienste besetzt.</p>`)+`<p class="mini">${v.length} Punkt(e), davon <b>${g} GESETZ-kritisch</b>:</p>`+
+    v.map(x=>`<div class="item ${x.schwere}"><span class="badge ${x.schwere}">${x.schwere==='LUECKE'?'OFFEN':x.schwere}</span><b>${esc(x.mitarbeiter)}</b>${x.tag?" · "+x.tag.split('-').reverse().join('.'):""}: ${esc(x.text)}</div>`).join("");
   box.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function einspringen(){
@@ -1229,29 +1246,45 @@ function autoFuellen(zufall){
   if(!aktiv.length){ modalOeffnen('<h3>ℹ️ Kein Tagesbedarf hinterlegt</h3><p>Damit automatisch vervollständigt werden kann, setze bei den Schichtarten die Spalte <b>„Mind."</b> auf die Anzahl, die <b>täglich</b> besetzt sein muss (z. B. Tagdienst = 1, Nachtdienst = 1).</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
   if(!state.team.some(t=>t.name)){ modalOeffnen('<h3>ℹ️ Kein Team</h3><p>Trage zuerst unter „1 · Team" Mitarbeiter ein.</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
   const [j,m]=state.monat, tage=tageImMonat(j,m);
-  let gefuellt=0, offen=0;
-  for(let d=1; d<=tage; d++){
-    const is=iso(j,m,d);
-    for(const s of aktiv){
-      const min=+s.minBesetzung||0;
-      const brauchtQual = s.qual ? s.qual.toLowerCase() : null;
-      let anz=state.team.filter(mm=>(state.plan[mm.id]||{})[is]===s.id && (!brauchtQual||quals(mm).includes(brauchtQual))).length;
-      let schutz=0;
-      while(anz<min && schutz<80){
-        schutz++;
-        const {geeignet}=werKannEinspringen(is, s.id, true);
-        const frei=geeignet.filter(g=>!((state.plan[g.id]||{})[is]));  // nur wirklich LEERE Zellen füllen – FREI/alles bleibt
-        if(!frei.length){ offen+=(min-anz); break; }
-        const pick=frei[ zufall ? Math.floor(Math.random()*Math.min(2,frei.length)) : 0 ];
-        state.plan[pick.id]=state.plan[pick.id]||{};
-        state.plan[pick.id][is]=s.id;
-        autoGefuellt.push(pick.id+'|'+is);
-        anz++; gefuellt++;
-      }
-    }
+  const basis=JSON.stringify(state.plan);
+  // ein Durchlauf über den Monat; modus: true (alle Regeln) | {ohneRuhetage} | {ohneRuhetage,ohneMax}
+  const durchlauf=(rnd, modus, nurLuecken)=>{ const neu=[]; let offen=0, offenListe=[];
+    for(let d=1; d<=tage; d++){ const is=iso(j,m,d);
+      for(const s of aktiv){ const min=+s.minBesetzung||0, bq=s.qual?s.qual.toLowerCase():null;
+        let anz=state.team.filter(mm=>(state.plan[mm.id]||{})[is]===s.id && (!bq||quals(mm).includes(bq))).length; let schutz=0;
+        while(anz<min && schutz<80){ schutz++;
+          const {geeignet}=werKannEinspringen(is, s.id, modus);
+          const frei=geeignet.filter(g=>!((state.plan[g.id]||{})[is]));
+          if(!frei.length){ offen+=(min-anz); offenListe.push({d,s:s.id,fehlt:min-anz}); break; }
+          const pick=frei[ rnd ? Math.floor(Math.random()*Math.min(3,frei.length)) : 0 ];
+          state.plan[pick.id]=state.plan[pick.id]||{}; state.plan[pick.id][is]=s.id; neu.push(pick.id+'|'+is); anz++;
+        } } }
+    return {neu, offen, offenListe}; };
+  const bewertung=()=>{ let streu=0; const z=state.team.filter(t=>t.name).map(t=>dienste(t.id).filter(([x,a])=>istArbeit(a)&&imMonat(x)).length); if(z.length) streu=Math.max(...z)-Math.min(...z); return streu; };
+  // Mehrfach-Suche: jede Variante = strenger Durchlauf + gestufte Lockerung; Bewertung: offene Dienste ≫ Lockerungen ≫ Verteilung.
+  // Sucht weiter, bis alles regelkonform besetzt ist (max. ~3 s / 400 Varianten).
+  let best=null; const t0=Date.now(); let versuche=0;
+  const variante=(rnd)=>{ state.plan=JSON.parse(basis);
+    const r1=durchlauf(rnd, true); let n2=[], n3=[];
+    if(r1.offen>0){ n2=durchlauf(rnd,{ohneRuhetage:true}).neu; }
+    if(pruefeLueckenListe().length){ n3=durchlauf(rnd,{ohneRuhetage:true,ohneMax:true}).neu; }
+    const off=pruefeLueckenListe().reduce((a,x)=>a+x.fehlt,0);
+    const E=state.einstellungen; const w1=E.ruhetage.an?pruefeRuhetageNachNacht(E.ruhetage.minFrei).length:0;   // tatsächlich zu wenige Ruhetage nach Nacht
+    const w2=E.verteilung.an?state.team.filter(t=>t.name&&istVollzeit(t)&&(tagdiensteMonat(t.id)>E.verteilung.tagMax||naechteMonat(t.id)>E.verteilung.nachtMax)).length:0;   // Personen über Vollzeit-Höchstzahl
+    return {sc: off*100000 + w2*1000 + w1*100 + bewertung(), plan:JSON.stringify(state.plan), neu:[...r1.neu,...n2,...n3], offen:off, g1:w1, g2:w2}; };
+  while(versuche<400 && (Date.now()-t0)<3000){
+    const v=variante(zufall || versuche>0); versuche++;
+    if(!best || v.sc<best.sc) best=v;
+    if(best.offen===0 && best.g1===0 && best.g2===0 && versuche>=(zufall?3:5)) break;   // perfekt: alles besetzt ohne Lockerung
+    if(best.offen===0 && versuche>=60) break;                                          // alles besetzt, Lockerung minimal gesucht
   }
+  state.plan=JSON.parse(best.plan); const neuAlle=[...best.neu], gelockert1=best.g1, gelockert2=best.g2;
+  const rest=pruefeLueckenListe(); const offen=rest.reduce((a,x)=>a+x.fehlt,0);
+  autoGefuellt.push(...neuAlle); const gefuellt=neuAlle.length;
   protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
-  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tag- und Nachtdienste in Folge, Ruhetage nach Nacht und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  const lockTxt=(gelockert1||gelockert2)?'<p class="mini" style="color:var(--fairness)">⚠️ '+(gelockert1?gelockert1+'× weniger Ruhetage nach Nacht als eingestellt':'')+(gelockert1&&gelockert2?' · ':'')+(gelockert2?gelockert2+' Person(en) über der Vollzeit-Höchstzahl':'')+' — nötig, damit alle Pflichtdienste besetzt sind (Ruhezeit-Gesetz und Dienste-in-Folge-Grenzen bleiben eingehalten). „Plan prüfen" zeigt die Stellen.</p>':'';
+  const offTxt=offen>0?'<div class="unterdeckung" style="margin:10px 0"><b>⚠️ '+offen+' Dienst(e) OFFEN</b> — niemand verfügbar ohne Verstoß gegen Ruhezeit/Gesetz, Dienste-in-Folge-Grenzen, Urlaub, Wunschfrei oder Qualifikation:<br>'+rest.map(x=>esc(kuerzel(x.s))+' am '+x.d+'.').join(' · ')+'<br><span class="mini">Im Plan rot markiert (Zeile „⚠ OFFEN"). Lösung: Springer/Aushilfe eintragen, eine persönliche Grenze anpassen oder Wunschfrei tauschen.</span></div>':'<p class="ok">✅ Alle Pflichtdienste besetzt.</p>';
+  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt.</p>'+offTxt+lockTxt+'<p class="mini">Entwurf — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen)</b> wurden eingehalten. Beste von '+versuche+' berechneten Varianten. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
 
 /* Datei / CSV / Beispiel / leeren */
