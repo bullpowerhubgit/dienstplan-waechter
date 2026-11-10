@@ -164,12 +164,14 @@
         <datalist id="ruheListe"><option value="11">Gesetz</option><option value="10">Pflege-Tarif</option><option value="9.25">Dienstvereinbarung</option></datalist></label>
       <button class="primary" onclick="pruefen()">🛡️ Plan prüfen</button>
       <button class="primary" onclick="speichernKlick()">💾 Speichern</button>
-      <button onclick="sichernDatei()">⬇︎ Als Datei sichern</button>
-      <label class="ctl" style="cursor:pointer">⬆︎ Datei laden <input type="file" id="datei" accept=".json" style="display:none" onchange="ladenDatei(event)"></label>
+      <button onclick="protokollOeffnen()">📜 Protokoll &amp; Freigabe</button>
+      <button onclick="sichernDatei()">⬇︎ Sicherungsdatei speichern</button>
+      <label class="ctl" style="cursor:pointer">⬆︎ Sicherungsdatei laden <input type="file" id="datei" accept=".json" style="display:none" onchange="ladenDatei(event)"></label>
       <button onclick="csvExport()">📄 Plan als CSV</button>
       <button onclick="leeren()">🗑 Alles leeren</button>
     </div>
-    <p class="hint" style="margin-top:10px">Ruhezeit-Kürzung nur, wenn Tarif/Dienstvereinbarung (z. B. AVR Caritas) es erlaubt. Dieses Tool ist eine Hilfe, kein Rechtsgutachten.</p>
+    <p class="hint" id="sicherungHinweis" style="margin-top:10px"></p>
+    <p class="hint" style="margin-top:6px">Pflege-Ausnahme (§ 5 Abs. 2 ArbZG, 10 statt 11 h mit Ausgleich auf 12 h) unter „Einstellungen“ einschaltbar. Ruhezeit-Kürzung nur, wenn Tarif/Dienstvereinbarung (z. B. AVR Caritas) es erlaubt. Dieses Tool ist eine Hilfe, kein Rechtsgutachten.</p>
   </div>
 
   <div class="panel">
@@ -259,7 +261,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-05-W</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-X</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -308,7 +310,7 @@ function pflegeSchichtarten(){ return [
 function stdEinstellungen(){ return {
   qualifikation:{an:true}, wunschfrei:{an:true}, ruhetage:{an:true,minFrei:2},
   dienstdauer:{an:true,maxH:12}, nachtfair:{an:true,maxAbstand:2}, stunden:{an:true,toleranz:8},
-  folge:{an:false,maxFolge:6}, mindestbesetzung:{an:true}
+  folge:{an:false,maxFolge:6}, mindestbesetzung:{an:true}, pflegeAusnahme:{an:false,ausgleichH:12,zeitraumTage:28}
 };}
 function neuerMitarbeiter(){ return {id:uid(), name:"", vertrag:"Vollzeit", soll_stunden:174, springer:false, qualifikationen:[], wunschfrei:[], urlaub:[], urlaubAnspruch:30, uebertrag:0}; }
 let state = {monat:[2026,11], min_ruhe_h:11, bundesland:'BY', schichtarten:pflegeSchichtarten(), einstellungen:stdEinstellungen(), team:[], plan:{}, patienten:[], zuordnung:{}};
@@ -372,16 +374,42 @@ function istStundenMonat(id){ return dienste(id).filter(([t,a])=>istArbeit(a)&&i
 function naechteMonat(id){ return dienste(id).filter(([t,a])=>istNacht(a)&&imMonat(t)).length; }
 
 /* ---------- Regeln (iterieren über team mit fester ID; Name nur Anzeige) ---------- */
+function dmy(isoStr){ return String(isoStr||'').split('-').reverse().join('.'); }
+function dmyD(dt){ return String(dt.getDate()).padStart(2,'0')+'.'+String(dt.getMonth()+1).padStart(2,'0')+'.'+dt.getFullYear(); }
 function pruefeRuhezeit(min_ruhe){
-  const out=[];
+  const out=[]; const pa=(state.einstellungen&&state.einstellungen.pflegeAusnahme)||{};
+  const aus=!!pa.an, untergrenze=Math.max(0,min_ruhe-1), ausgl=(+pa.ausgleichH>0?+pa.ausgleichH:12), fenster=(+pa.zeitraumTage>0?+pa.zeitraumTage:28);
+  const [pj,pm]=state.monat, planMonatEnde=new Date(pj,pm,1,0,0);   // Ende des geplanten Monats (24:00 am letzten Tag)
   for(const m of state.team){
     const arbeit=dienste(m.id).filter(([,a])=>istArbeit(a));
+    const ruhen=[];
     for(let i=0;i<arbeit.length-1;i++){
       const [t1,a1]=arbeit[i], [t2,a2]=arbeit[i+1];
-      const ruhe=stundenZwischen(sEnde(t1,a1), sStart(t2,a2));
-      if(ruhe<min_ruhe){ const [,mm,dd]=teile(t1);
-        out.push({schwere:"GESETZ",mitarbeiter:m.name,tag:t2,text:`nur ${ruhe.toFixed(1)} h Ruhe nach ${nm(a1)} (${String(dd).padStart(2,'0')}.${String(mm).padStart(2,'0')}.) vor ${nm(a2)} — Minimum ${min_ruhe} h (§ 5 ArbZG).`}); }
+      const beginn=sEnde(t1,a1), ende=sStart(t2,a2);
+      ruhen.push({t1,a1,t2,a2,beginn,ende,ruhe:stundenZwischen(beginn,ende)});
     }
+    // Ruhe nach dem letzten geplanten Dienst bis Monatsende zählt als Ausgleich (sie ist mindestens so lang)
+    if(arbeit.length){ const [tl,al]=arbeit[arbeit.length-1]; const b=sEnde(tl,al); if(planMonatEnde>b) ruhen.push({t1:tl,a1:al,t2:null,a2:null,beginn:b,ende:planMonatEnde,ruhe:stundenZwischen(b,planMonatEnde),offenEnde:true}); }
+    const planEnde = arbeit.length ? (planMonatEnde > sEnde(arbeit[arbeit.length-1][0],arbeit[arbeit.length-1][1]) ? planMonatEnde : sEnde(arbeit[arbeit.length-1][0],arbeit[arbeit.length-1][1])) : planMonatEnde;
+    const benutzt=new Set(); const ausgeglichen=[];
+    ruhen.forEach((r,idx)=>{
+      if(r.offenEnde || r.ruhe>=min_ruhe) return;
+      const basis=`nur ${r.ruhe.toFixed(1)} h Ruhe nach ${nm(r.a1)} (${dmy(r.t1)}) vor ${nm(r.a2)}`;
+      if(aus && r.ruhe>=untergrenze-1e-9){
+        const grenze=new Date(r.ende.getTime()+fenster*86400000);
+        let treffer=-1;
+        for(let k=idx+1;k<ruhen.length;k++){ const q=ruhen[k]; if(benutzt.has(k)) continue; if(q.beginn>grenze) break; if(q.ruhe>=ausgl-1e-9){ treffer=k; break; } }
+        if(treffer>=0){ benutzt.add(treffer); const q=ruhen[treffer];
+          ausgeglichen.push({tag:r.t2, text:`${dmy(r.t1)} (${r.ruhe.toFixed(1)} h, Ausgleich ab ${dmyD(q.beginn)})`}); }
+        else if(grenze>planEnde){
+          out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:r.t2,text:`${basis} — verkürzt nach § 5 Abs. 2 ArbZG: Ausgleich (eine Ruhezeit von mind. ${ausgl} h) bis ${dmyD(grenze)} noch einplanen.`}); }
+        else {
+          out.push({schwere:"GESETZ",mitarbeiter:m.name,tag:r.t2,text:`${basis} — verkürzt, aber innerhalb von ${fenster} Tagen nicht durch eine Ruhezeit von mind. ${ausgl} h ausgeglichen (§ 5 Abs. 2 ArbZG).`}); }
+      } else {
+        out.push({schwere:"GESETZ",mitarbeiter:m.name,tag:r.t2,text: aus ? `${basis} — Minimum ${untergrenze} h, auch mit Pflege-Ausnahme (§ 5 Abs. 2 ArbZG).` : `${basis} — Minimum ${min_ruhe} h (§ 5 ArbZG).`});
+      }
+    });
+    if(ausgeglichen.length) out.push({schwere:"HINWEIS",mitarbeiter:m.name,tag:ausgeglichen[0].tag,text:`${ausgeglichen.length}× Ruhezeit verkürzt nach § 5 Abs. 2 ArbZG (Pflege) — alle rechtzeitig auf mind. ${ausgl} h ausgeglichen: ${ausgeglichen.map(a=>a.text).join('; ')}.`});
   }
   return out;
 }
@@ -594,6 +622,9 @@ function normalisieren(s){
   s.plan = (s.plan && typeof s.plan==='object') ? s.plan : {};
   s.patienten = Array.isArray(s.patienten) ? s.patienten.map(p=>({id:p.id||uid(), name:p.name||'', farbe:p.farbe||'#e08a1e'})) : [];
   s.zuordnung = (s.zuordnung && typeof s.zuordnung==='object') ? s.zuordnung : {};
+  s.protokoll = Array.isArray(s.protokoll) ? s.protokoll.filter(p=>p && p.zeit && p.was) : [];
+  s.planStatus = (s.planStatus && typeof s.planStatus==='object') ? s.planStatus : {};
+  s.letzteSicherung = (typeof s.letzteSicherung==='string') ? s.letzteSicherung : null;
   if(s.team.length===0) s.team.push(neuerMitarbeiter());
   return s;
 }
@@ -611,7 +642,7 @@ function aufbauen(){
   document.getElementById("monat").value=state.monat[0]+"-"+String(state.monat[1]).padStart(2,"0");
   const bs=document.getElementById("bundesland"); if(bs){ bs.innerHTML=BUNDESLAENDER.map(([k,n])=>`<option value="${k}">${esc(n)}</option>`).join(''); bs.value=state.bundesland||'BY'; }
   document.getElementById("ruhe").value=String(state.min_ruhe_h||11);
-  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderPatienten(); renderEinsArt(); renderGrid(); renderLegend(); renderLizStreifen();
+  renderSchichtarten(); renderEinstellungen(); renderTeam(); renderPatienten(); renderEinsArt(); renderGrid(); renderLegend(); renderLizStreifen(); renderSicherungHinweis();
   letzteGeprueft=false;
 }
 // nur beim Programmstart: Browserstand lesen
@@ -727,6 +758,7 @@ function renderEinstellungen(){
     estTog('nachtfair','Nacht-Fairness (Zuschläge)')+estNum('nachtfair','maxAbstand','max. Abstand',0),
     estTog('stunden','Soll-Stunden-Abgleich')+estNum('stunden','toleranz','Toleranz h',0),
     estTog('folge','Max. Dienste in Folge')+estNum('folge','maxFolge','max. Tage',1),
+    estTog('pflegeAusnahme','Pflege-Ausnahme § 5 Abs. 2 ArbZG: Ruhezeit bis 1 h kürzer erlaubt, wenn sie innerhalb des Zeitraums durch eine Ruhezeit von mind. „Ausgleich h“ ausgeglichen wird (nur wenn Tarif/Dienstvereinbarung das vorsieht)')+estNum('pflegeAusnahme','ausgleichH','Ausgleich h',11)+estNum('pflegeAusnahme','zeitraumTage','Zeitraum Tage',1),
     estTog('mindestbesetzung','Unbesetzte Dienste melden (setze bei jeder Schichtart die Spalte „Mind." auf die Anzahl, die täglich besetzt sein muss)'),
   ];
   box.innerHTML=rows.map(r=>`<div class="row" style="padding:7px 0;border-top:1px solid var(--line)">${r}</div>`).join("");
@@ -742,7 +774,7 @@ function setTageImFeld(m,feld,text){ const [j,mo]=state.monat; const pre=`${j}-$
   m[feld]=[...andere, ...new Set(neu)];
 }
 function teamZeile(){ state.team.push(neuerMitarbeiter()); renderTeam(); renderGrid(); }
-function teamLoeschen(id){ state.team=state.team.filter(m=>m.id!==id); delete state.plan[id]; renderTeam(); renderGrid(); speichernLokal(); }
+function teamLoeschen(id){ protokolliere('Mitarbeiter entfernt: '+mitName(id), null, true); state.team=state.team.filter(m=>m.id!==id); delete state.plan[id]; renderTeam(); renderGrid(); speichernLokal(); }
 function liste(s){ return s.split(',').map(x=>x.trim()).filter(Boolean); }
 function renderTeam(){
   const tb=document.getElementById("teamBody"); tb.innerHTML="";
@@ -897,9 +929,56 @@ function zelleKlick(td){
     else if(el.dataset.kind==='pat'){ setPatientZelle(id,is,el.dataset.p); }
     else { setZelle(id,is,el.dataset.v); } });
 }
-function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; if(v) state.plan[id][is]=v; else delete state.plan[id][is];
+/* ---------- Änderungsprotokoll, Freigabe, Sicherung ---------- */
+const BEARB_KEY='dw-bearbeiter';
+function bearbeiter(){ try{ return localStorage.getItem(BEARB_KEY)||''; }catch(e){ return ''; } }
+function setBearbeiter(n){ try{ localStorage.setItem(BEARB_KEY, String(n||'').trim()); }catch(e){} }
+function monatKey(){ return state.monat[0]+'-'+String(state.monat[1]).padStart(2,'0'); }
+const STATUS_TEXT={entwurf:'Entwurf', pruefung:'Zur Prüfung (Leitung/MAV)', freigegeben:'Freigegeben'};
+function planStatus(mk){ state.planStatus=(state.planStatus&&typeof state.planStatus==='object')?state.planStatus:{}; return state.planStatus[mk||monatKey()]||{status:'entwurf'}; }
+function protokolliere(was, mk, planAenderung){ state.protokoll=Array.isArray(state.protokoll)?state.protokoll:[]; const k=mk||monatKey();
+  state.protokoll.push({zeit:new Date().toISOString(), wer:bearbeiter()||'(ohne Namen)', was:String(was), monat:k, nachFreigabe: !!planAenderung && planStatus(k).status==='freigegeben'});
+  if(state.protokoll.length>3000) state.protokoll=state.protokoll.slice(-3000); }
+function mitName(id){ const m=state.team.find(x=>x.id===id); return (m&&m.name)||'(ohne Namen)'; }
+function zeitText(isoZ){ const d=new Date(isoZ); return dmyD(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function renderSicherungHinweis(){ const el=document.getElementById('sicherungHinweis'); if(!el) return;
+  if(!hatDaten()){ el.innerHTML=''; return; }
+  const l=state.letzteSicherung?new Date(state.letzteSicherung):null; const tage=l?Math.floor((Date.now()-l.getTime())/86400000):null;
+  if(l && tage<7){ el.innerHTML='💾 Letzte Sicherungsdatei: '+zeitText(state.letzteSicherung)+' — gut so.'; el.style.color=''; }
+  else { el.innerHTML='💾 <b>'+(l?'Letzte Sicherungsdatei vor '+tage+' Tagen.':'Noch keine Sicherungsdatei erstellt.')+'</b> Wird der Browser geleert, ist der Plan weg — bitte „⬇︎ Sicherungsdatei speichern“ klicken (z. B. 1× pro Woche).'; el.style.color='var(--krank)'; }
+}
+function protokollOeffnen(){
+  const mk=monatKey(), st=planStatus(mk), liste=(state.protokoll||[]).slice().reverse();
+  const nach=(state.protokoll||[]).filter(p=>p.monat===mk && p.nachFreigabe).length;
+  let h='<h3>📜 Änderungsprotokoll &amp; Freigabe</h3>'+
+    '<p class="mini">Ein veröffentlichter Dienstplan ist verbindlich. Hier steht nachvollziehbar, <b>wer wann was</b> geändert hat. Alles bleibt auf diesem Gerät (und in der Sicherungsdatei).</p>'+
+    '<div class="row" style="gap:10px;flex-wrap:wrap;margin:10px 0"><label class="ctl">Dein Name (für das Protokoll) <input id="bearbName" value="'+esc(bearbeiter())+'" placeholder="z. B. T. Sarkany" style="width:180px"></label>'+
+    '<label class="ctl">Status '+esc(mk.split('-').reverse().join('/'))+' <select id="planStatusSel">'+Object.keys(STATUS_TEXT).map(k=>'<option value="'+k+'"'+(st.status===k?' selected':'')+'>'+STATUS_TEXT[k]+'</option>').join('')+'</select></label></div>'+
+    (st.am?'<p class="mini">Aktuell: <b>'+esc(STATUS_TEXT[st.status]||st.status)+'</b> seit '+esc(zeitText(st.am))+(st.von?' · von '+esc(st.von):'')+(nach?' · <b style="color:var(--krank)">'+nach+' Änderung(en) nach Freigabe</b>':'')+'</p>':'')+
+    '<div class="row" style="gap:8px;margin:8px 0"><button onclick="protokollCsv()">📄 Protokoll als CSV</button></div>'+
+    '<div style="max-height:45vh;overflow:auto;border:1px solid var(--line);border-radius:8px"><table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left">Zeit</th><th style="text-align:left">Wer</th><th style="text-align:left">Monat</th><th style="text-align:left">Was</th></tr></thead><tbody>'+
+    (liste.length? liste.slice(0,300).map(p=>'<tr'+(p.nachFreigabe?' style="color:var(--krank)"':'')+'><td>'+esc(zeitText(p.zeit))+'</td><td>'+esc(p.wer)+'</td><td>'+esc(String(p.monat||'').split('-').reverse().join('/'))+'</td><td>'+esc(p.was)+(p.nachFreigabe?' <b>(nach Freigabe)</b>':'')+'</td></tr>').join('') : '<tr><td colspan="4" class="mini">Noch keine Einträge — ab jetzt wird jede Änderung festgehalten.</td></tr>')+
+    '</tbody></table></div>'+(liste.length>300?'<p class="mini">Es werden die letzten 300 von '+liste.length+' Einträgen angezeigt — vollständig im CSV.</p>':'')+
+    '<p style="margin-top:14px"><button class="primary" onclick="modalSchliessen()">Schließen</button></p>';
+  modalOeffnen(h);
+  document.getElementById('bearbName').onchange=ev=>{ setBearbeiter(ev.target.value); };
+  document.getElementById('planStatusSel').onchange=ev=>{ const v=ev.target.value; state.planStatus=state.planStatus||{};
+    protokolliere('Status '+mk.split('-').reverse().join('/')+': '+(STATUS_TEXT[v]||v), mk);
+    state.planStatus[mk]={status:v, am:new Date().toISOString(), von:bearbeiter()||''}; speichernLokal(); protokollOeffnen(); };
+}
+function protokollCsv(){
+  const cz=x=>'"'+String(x??'').replace(/^[=+@\-]/,"'$&").replace(/"/g,'""')+'"';
+  const z=[['Zeit','Wer','Monat','Änderung','Nach Freigabe'].map(cz).join(';')];
+  for(const p of (state.protokoll||[])) z.push([zeitText(p.zeit),p.wer,p.monat,p.was,p.nachFreigabe?'ja':''].map(cz).join(';'));
+  const blob=new Blob(['﻿'+z.join('\n')],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='Dienstplan-Protokoll_'+new Date().toISOString().slice(0,10)+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; const vorher=state.plan[id][is]||'';
+  if((vorher||'')!==(v||'')){ const [jj,mm]=teile(is); protokolliere(mitName(id)+' · '+dmy(is)+': '+(vorher?kuerzel(vorher)||vorher:'frei')+' → '+(v?kuerzel(v)||v:'frei'), jj+'-'+String(mm).padStart(2,'0'), true); }
+  if(v) state.plan[id][is]=v; else delete state.plan[id][is];
   if(!istArbeit(v) && state.zuordnung[id]) delete state.zuordnung[id][is];
-  renderGrid(); renderTeam(); speichernLokal(); }
+  renderGrid(); renderTeam(); speichernLokal();
+  if(planStatus().status==='freigegeben') setStatus('⚠️ Plan ist FREIGEGEBEN — Änderung wurde im Protokoll vermerkt (📜).'); }
 document.addEventListener('click', ()=>{ const m=document.getElementById('zellMenu'); if(m && m.style.display==='block') m.style.display='none'; });
 
 /* Dienstplan drucken (ohne Popup — nutzt Druckbereich + @media print) */
@@ -989,6 +1068,7 @@ function druckDienstplan(){zaehle('drucken');
       h+='</tr>'; }
     h+='</tbody></table>';
   }
+  { const _st=planStatus(); const _n=(state.protokoll||[]).filter(p=>p.monat===monatKey()&&p.nachFreigabe).length; h+='<p class="dfoot" style="font-size:10px;color:#333">Planstatus: <b>'+esc(STATUS_TEXT[_st.status]||'Entwurf')+'</b>'+(_st.am?' seit '+esc(zeitText(_st.am))+(_st.von?' von '+esc(_st.von):''):'')+(_n?' · '+_n+' Änderung(en) nach Freigabe (siehe Änderungsprotokoll im Tool)':'')+'</p>'; }
   h+='<div class="dsign"><div>Erstellt am: '+erstellt+'</div><div>Freigabe / Unterschrift Leitung: _______________________</div></div>';
   if(lizAktiv()){
     h+='<p class="dfoot">Dienstplan-Wächter · Lizenziert für '+esc(lizFirma())+' · Hilfe zur Planung, kein Rechtsgutachten · läuft offline.</p>';
@@ -1095,22 +1175,23 @@ function autoFuellen(zufall){
       }
     }
   }
-  renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
+  protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
   modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit</b> wurden respektiert. Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
 
 /* Datei / CSV / Beispiel / leeren */
 function sichernDatei(){
+  state.letzteSicherung=new Date().toISOString(); protokolliere('Sicherungsdatei erstellt'); speichernLokal(); renderSicherungHinweis();
   const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download=`Dienstplan_${state.monat[0]}-${String(state.monat[1]).padStart(2,'0')}.json`; a.click(); URL.revokeObjectURL(a.href);
+  a.download=`Dienstplan-Waechter_Sicherung_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
 }
 function ladenDatei(ev){
   const f=ev.target.files[0]; if(!f) return; const r=new FileReader();
   r.onload=()=>{ let kand;
     try{ const roh=JSON.parse(r.result); const dup=doppelteIds(roh); if(dup) throw new Error('DUP:'+dup); kand=normalisieren(roh); bereinigePlan(kand); }
     catch(e){ const m=String(e&&e.message||''); alert(m.startsWith('DUP:') ? ('Datei NICHT geladen — doppelte '+m.slice(4)+'. IDs müssen eindeutig sein (mehrdeutige Zuordnung ist nicht automatisch reparierbar). Bisheriger Plan bleibt unverändert.') : 'Datei ungültig — bisheriger Plan bleibt unverändert.'); return; }
-    state=kand; speichernLokal(); aufbauen(); setStatus("✅ Datei geladen"); };
+    state=kand; protokolliere('Sicherungsdatei geladen: '+f.name); speichernLokal(); aufbauen(); setStatus("✅ Sicherungsdatei geladen"); };
   r.readAsText(f); ev.target.value="";
 }
 function csvExport(){zaehle('csv-export');
