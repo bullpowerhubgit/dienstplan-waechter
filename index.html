@@ -261,7 +261,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z2</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -612,7 +612,7 @@ function probeKonflikte(m, tag, art){
     const neu=nachher.filter(x=> !vs.has(schluessel(x)));          // NUR neu verursachte
     gesetz=[...new Set([...neu.filter(x=>x.schwere==='GESETZ').map(x=>x.text), ...overlap])];
     warn=[...new Set(neu.filter(x=>x.schwere==='HINWEIS'||x.schwere==='FAIRNESS').map(x=>x.text))];
-    folgeNeu=[...new Set(neu.filter(x=>/in Folge/.test(x.text)).map(x=>x.text))];
+    folgeNeu=[...new Set(neu.filter(x=>/in Folge|zwischen Nacht-Ende/.test(x.text)).map(x=>x.text))];   // im Auto-Plan verbindlich: Folge-Regeln + Ruhetage nach Nacht
     if(e.dienstdauer.an && istArbeit(art) && dauer(art)>e.dienstdauer.maxH) warn.push(`${nm(art)} dauert ${dauer(art)} h — über ${e.dienstdauer.maxH} h (§ 3 ArbZG; in der Pflege mit Ausgleich/Tarif möglich — bitte prüfen).`);
   } finally {
     state.team=origTeam;
@@ -1239,7 +1239,7 @@ function autoFuellen(zufall){
     }
   }
   protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
-  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tag- und Nachtdienste in Folge und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt'+(offen>0?' · <b style="color:var(--krank)">'+offen+' Lücke(n)</b> blieben offen (niemand verfügbar/zulässig)':'')+'.</p><p class="mini">Das ist ein <b>Vorschlag/Entwurf</b> — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste in Folge, max. Tag- und Nachtdienste in Folge, Ruhetage nach Nacht und Tag-/Nacht-Verteilung (Vollzeit)</b> wurden respektiert (soweit aktiviert). Bitte prüfen und anpassen. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
 
 /* Datei / CSV / Beispiel / leeren */
