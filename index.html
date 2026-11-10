@@ -263,7 +263,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z7</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z8</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -699,6 +699,7 @@ function normalisieren(s){
   s.protokoll = Array.isArray(s.protokoll) ? s.protokoll.filter(p=>p && p.zeit && p.was) : [];
   s.planStatus = (s.planStatus && typeof s.planStatus==='object') ? s.planStatus : {};
   s.letzteSicherung = (typeof s.letzteSicherung==='string') ? s.letzteSicherung : null;
+  s.autoZellen = (s.autoZellen && typeof s.autoZellen==='object') ? s.autoZellen : {};
   if(s.team.length===0) s.team.push(neuerMitarbeiter());
   return s;
 }
@@ -1064,6 +1065,7 @@ function protokollCsv(){
 function setZelle(id,is,v){ state.plan[id]=state.plan[id]||{}; const vorher=state.plan[id][is]||'';
   if((vorher||'')!==(v||'')){ const [jj,mm]=teile(is); protokolliere(mitName(id)+' · '+dmy(is)+': '+(vorher?kuerzel(vorher)||vorher:'frei')+' → '+(v?kuerzel(v)||v:'frei'), jj+'-'+String(mm).padStart(2,'0'), true); }
   if(v) state.plan[id][is]=v; else delete state.plan[id][is];
+  if(state.autoZellen) delete state.autoZellen[id+'|'+is];   // von Hand gesetzt = fest, wird von „Anderer Vorschlag“ nicht überschrieben
   if(!istArbeit(v) && state.zuordnung[id]) delete state.zuordnung[id][is];
   renderGrid(); renderTeam(); speichernLokal();
   if(planStatus().status==='freigegeben') setStatus('⚠️ Plan ist FREIGEGEBEN — Änderung wurde im Protokoll vermerkt (📜).'); }
@@ -1240,8 +1242,26 @@ function vorschlagFuerTag(is){
 /* Plan automatisch vervollständigen: füllt NUR leere Pflichtdienste (Mind>=1) mit passenden, verfügbaren Personen. Überschreibt nichts. Entwurf. */
 let autoGefuellt=[];
 function autoVorschlag(){ autoFuellen(false); }
-function autoWuerfeln(){ autoGefuellt.forEach(k=>{ const p=k.split('|'); if(state.plan[p[0]]) delete state.plan[p[0]][p[1]]; }); autoGefuellt=[]; autoFuellen(true); }
-function autoFuellen(zufall){
+// Automatisch gesetzte Zellen werden DAUERHAFT gemerkt (state.autoZellen, auch nach Neuladen); von Hand geänderte Zellen fallen heraus.
+function autoZellenMonat(){ const [j,m]=state.monat, pre=`${j}-${String(m).padStart(2,'0')}-`; state.autoZellen=state.autoZellen||{};
+  return Object.keys(state.autoZellen).filter(k=>{ const [pid,is]=k.split('|'); return is.startsWith(pre) && (state.plan[pid]||{})[is]===state.autoZellen[k]; }); }
+function autoWuerfeln(){
+  const keys=autoZellenMonat();
+  const neuRechnen=(liste)=>{ const vorher=JSON.stringify(state.plan);
+    liste.forEach(k=>{ const [pid,is]=k.split('|'); if(state.plan[pid]) delete state.plan[pid][is]; delete state.autoZellen[k]; });
+    const basisLeer=JSON.stringify(state.plan); let versuch=0;
+    do{ state.plan=JSON.parse(basisLeer); autoFuellen(true, true); versuch++; } while(JSON.stringify(state.plan)===vorher && versuch<5);   // garantiert eine ANDERE Variante
+    autoFuellenMeldung(); };
+  if(keys.length){ neuRechnen(keys); return; }
+  // Kein gemerkter Auto-Vorschlag (z. B. Plan aus älterer Version oder von Hand): nach Rückfrage alle Pflichtdienste des Monats neu verteilen
+  const [j,m]=state.monat, pre=`${j}-${String(m).padStart(2,'0')}-`, aktiv=new Set(state.schichtarten.filter(x=>(+x.minBesetzung||0)>0).map(x=>x.id));
+  const alle=[]; for(const t of state.team){ for(const is of Object.keys(state.plan[t.id]||{})){ if(is.startsWith(pre) && aktiv.has(state.plan[t.id][is])) alle.push(t.id+'|'+is); } }
+  if(!alle.length){ autoFuellen(true); return; }
+  bestaetige(`„Anderer Vorschlag“ verteilt alle ${alle.length} Pflichtdienste (${[...aktiv].map(id=>kuerzel(id)).join(', ')}) dieses Monats NEU. Frei, Krank, Urlaub, Wunschfrei und andere Dienste bleiben stehen. Vorher am besten „Sicherungsdatei speichern“. Neu verteilen?`, ()=>{ state.autoZellen=state.autoZellen||{}; neuRechnen(alle); });
+}
+let __autoMeldung=null;
+function autoFuellenMeldung(){ if(__autoMeldung){ modalOeffnen(__autoMeldung); __autoMeldung=null; } }
+function autoFuellen(zufall, stumm){
   const aktiv=state.schichtarten.filter(s=>(+s.minBesetzung||0)>0);
   if(!aktiv.length){ modalOeffnen('<h3>ℹ️ Kein Tagesbedarf hinterlegt</h3><p>Damit automatisch vervollständigt werden kann, setze bei den Schichtarten die Spalte <b>„Mind."</b> auf die Anzahl, die <b>täglich</b> besetzt sein muss (z. B. Tagdienst = 1, Nachtdienst = 1).</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
   if(!state.team.some(t=>t.name)){ modalOeffnen('<h3>ℹ️ Kein Team</h3><p>Trage zuerst unter „1 · Team" Mitarbeiter ein.</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>'); return; }
@@ -1280,11 +1300,12 @@ function autoFuellen(zufall){
   }
   state.plan=JSON.parse(best.plan); const neuAlle=[...best.neu], gelockert1=best.g1, gelockert2=best.g2;
   const rest=pruefeLueckenListe(); const offen=rest.reduce((a,x)=>a+x.fehlt,0);
-  autoGefuellt.push(...neuAlle); const gefuellt=neuAlle.length;
+  autoGefuellt.push(...neuAlle); const gefuellt=neuAlle.length; state.autoZellen=state.autoZellen||{}; neuAlle.forEach(k=>{ const [pid,is]=k.split('|'); state.autoZellen[k]=(state.plan[pid]||{})[is]; });
   protokolliere('Automatischer Plan-Vorschlag: '+gefuellt+' Dienst(e) ergänzt'+(offen>0?', '+offen+' Lücke(n) offen':''), null, true); renderGrid(); renderTeam(); letzteGeprueft=false; speichernLokal();
   const lockTxt=(gelockert1||gelockert2)?'<p class="mini" style="color:var(--fairness)">⚠️ '+(gelockert1?gelockert1+'× weniger Ruhetage nach Nacht als eingestellt':'')+(gelockert1&&gelockert2?' · ':'')+(gelockert2?gelockert2+' Person(en) über der Vollzeit-Höchstzahl':'')+' — nötig, damit alle Pflichtdienste besetzt sind (Ruhezeit-Gesetz und Dienste-in-Folge-Grenzen bleiben eingehalten). „Plan prüfen" zeigt die Stellen.</p>':'';
   const offTxt=offen>0?'<div class="unterdeckung" style="margin:10px 0"><b>⚠️ '+offen+' Dienst(e) OFFEN</b> — niemand verfügbar ohne Verstoß gegen Ruhezeit/Gesetz, Dienste-in-Folge-Grenzen, Urlaub, Wunschfrei oder Qualifikation:<br>'+rest.map(x=>esc(kuerzel(x.s))+' am '+x.d+'.').join(' · ')+'<br><span class="mini">Im Plan rot markiert (Zeile „⚠ OFFEN"). Lösung: Springer/Aushilfe eintragen, eine persönliche Grenze anpassen oder Wunschfrei tauschen.</span></div>':'<p class="ok">✅ Alle Pflichtdienste besetzt.</p>';
-  modalOeffnen('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt.</p>'+offTxt+lockTxt+'<p class="mini">Entwurf — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen)</b> wurden eingehalten. Beste von '+versuche+' berechneten Varianten. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  const __html=('<h3>🤖 Plan-Vorschlag erstellt</h3><p><b>'+gefuellt+'</b> Dienst(e) automatisch ergänzt.</p>'+offTxt+lockTxt+'<p class="mini">Entwurf — vorhandene Einträge, <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen)</b> wurden eingehalten. Beste von '+versuche+' berechneten Varianten. „🎲 Anderer Vorschlag" gibt eine andere Variante. Danach „🛡️ Plan prüfen".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
+  if(stumm) __autoMeldung=__html; else modalOeffnen(__html);
 }
 
 /* Datei / CSV / Beispiel / leeren */
