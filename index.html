@@ -117,6 +117,8 @@
     @page{size:landscape;margin:10mm}
   }
 </style>
+<!-- Besucherzählung: GoatCounter, ohne Cookies, zählt nur Seitenaufrufe/Klicks – keine Plan-Daten -->
+<script data-goatcounter="https://dienstplanwaechter.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </head>
 <body>
 <header>
@@ -945,7 +947,7 @@ function lizEingabe(){
     <p id="lizMsg" class="mini" style="min-height:18px"></p>
     <p><button class="primary" onclick="lizSpeichern()">Freischalten</button> <button onclick="modalSchliessen()">Abbrechen</button></p>`);
 }
-function lizSpeichern(){
+function lizSpeichern(){zaehle('lizenz-eingegeben');
   const firma=document.getElementById('lizF').value.trim();
   const key=document.getElementById('lizK').value.trim();
   const msg=document.getElementById('lizMsg');
@@ -954,7 +956,7 @@ function lizSpeichern(){
   try{ localStorage.setItem(LIZKEY, JSON.stringify({firma, schluessel:key})); }catch(e){}
   modalSchliessen(); renderLizStreifen(); setStatus("✅ Lizenz aktiviert — lizenziert für "+firma+".");
 }
-function druckDienstplan(){
+function druckDienstplan(){zaehle('drucken');
   const [j,m]=state.monat, tage=tageImMonat(j,m);
   const fei=feiertageImMonat(j,m,state.bundesland||'BY');
   const he=new Date(), erstellt=String(he.getDate()).padStart(2,'0')+'.'+String(he.getMonth()+1).padStart(2,'0')+'.'+he.getFullYear();
@@ -1015,7 +1017,8 @@ async function teileDienstplan(){
 }
 
 /* Aktionen */
-function pruefen(){
+function zaehle(n){try{if(window.goatcounter&&window.goatcounter.count){window.goatcounter.count({path:'aktion-'+n,title:n,event:true});}}catch(e){}}
+function pruefen(){zaehle('pruefen');
   letzteGeprueft=true;
   const v=pruefeAlles(); const box=document.getElementById("ergebnis");
   const aus=deaktivierteKern();
@@ -1110,7 +1113,7 @@ function ladenDatei(ev){
     state=kand; speichernLokal(); aufbauen(); setStatus("✅ Datei geladen"); };
   r.readAsText(f); ev.target.value="";
 }
-function csvExport(){
+function csvExport(){zaehle('csv-export');
   const cz=x=>'"'+String(x??'').replace(/^[=+@\-]/,"'$&").replace(/"/g,'""')+'"';
   const [j,m]=state.monat, tage=tageImMonat(j,m);
   let kopf=["Mitarbeiter"]; for(let d=1;d<=tage;d++) kopf.push(d);
@@ -1187,7 +1190,7 @@ function leeren(){
 
 /* Modal / Handbuch / Einrichtungs-Assistent */
 function modalOeffnen(html){ document.getElementById('modalbox').innerHTML='<span class="zu" onclick="modalSchliessen()">✕</span>'+html; document.getElementById('modal').classList.add('offen'); }
-function speichernKlick(){
+function speichernKlick(){zaehle('speichern');
   speichernLokal();
   modalOeffnen('<h3>✅ Gespeichert</h3><p>Deine Eingaben sind auf <b>diesem Gerät</b> gespeichert (Team, Schichtarten, Dienstplan, Patienten). Sie bleiben auch nach dem Schließen des Browsers erhalten.</p><p class="mini">Hinweis: Die App speichert ohnehin automatisch nach jeder Änderung. Für eine Sicherungskopie zum Weitergeben nutze „⬇︎ Als Datei sichern".</p><div class="row" style="margin-top:12px"><button onclick="modalSchliessen()">OK</button></div>');
 }
@@ -1284,6 +1287,7 @@ function handbuch(){
   '<h4>Lange Dienste &amp; Ausnahmesituationen dokumentieren</h4><p>Echter Notfall ohne Alternative (Erkrankung, niemand sonst): Du kannst <b>jeden</b> Dienst — auch 24 h — <b>manuell in den Plan klicken</b>. Das Tool <b>warnt rot, blockiert aber nicht</b>. Bitte Entscheidung &amp; Grund dokumentieren. (Geplanter Einsatz und tatsächlich geleistete Zeit sind verschiedene Dinge; Ausnahmen regelt das ArbZG eigens.)</p>'+
   '<h4>Datenschutz &amp; Grenzen</h4><ul>'+
     '<li>Zum Testen <b>nur fiktive Namen/Kürzel</b> — keine echten Patienten-/Kollegennamen.</li>'+
+    '<li>Deine Plan-Daten (Namen, Dienste, Wünsche) bleiben <b>nur auf deinem Gerät</b>. Anonym gezählt werden nur Seitenaufrufe und Klicks wie „Prüfen“ oder „Drucken“ (GoatCounter, ohne Cookies) – damit wir sehen, ob das Tool genutzt wird.</li>'+
     '<li>Das Tool ist eine <b>Hilfe, kein Rechtsgutachten</b> und kein unabhängiges Audit.</li>'+
     '<li>Es ersetzt <b>kein</b> bestehendes System (z. B. IHM) — es hilft beim <b>Planen &amp; Einspringen</b>.</li></ul>'+
   '<p style="margin-top:14px"><button class="primary" onclick="modalSchliessen()">Schließen</button></p>');
