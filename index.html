@@ -8,6 +8,7 @@
 <title>Dienstplan-Wächter</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#0e1116">
+<link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -261,7 +262,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z3</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z4</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -1190,8 +1191,11 @@ function einspringen(){
   const {geeignet,abgelehnt}=werKannEinspringen(tag,art);
   let h="";
   if(geeignet.length){
-    h+=`<p class='gut'>✅ Nach aktuellen Daten &amp; aktivierten Prüfungen geeignet für ${esc(nm(art))} am ${d}. — Zusage &amp; Freigabe stehen aus (Springer &amp; geringste Auslastung zuerst):</p>`;
-    h+=geeignet.map(k=>`<div class="item HINWEIS" style="border-color:var(--ok)"><button onclick="einteilen('${k.id}','${tag}','${art}')" style="float:right">✚ eintragen</button><b>${esc(k.name)}</b>${k.springer?' <span class="badge SPR">Springer</span>':''} — Auslastung ${Math.round(k.auslastung*100)} % · Nächte: ${k.naechte} · Rest-Soll: ${k.rest>0?'+':''}${Math.round(k.rest)} h <span class="mini">(${esc(k.grund)})</span>${(k.warnungen&&k.warnungen.length)?`<div class="mini" style="color:var(--fairness)">⚠ Hinweis: ${esc(k.warnungen.join('; '))}</div>`:''}</div>`).join("");
+    const karte=k=>`<div class="item HINWEIS" style="border-color:var(--ok)"><button onclick="einteilen('${k.id}','${tag}','${art}')" style="float:right">✚ eintragen</button><b>${esc(k.name)}</b>${k.springer?' <span class="badge SPR">Springer</span>':''} — Auslastung ${Math.round(k.auslastung*100)} % · Nächte: ${k.naechte} · Rest-Soll: ${k.rest>0?'+':''}${Math.round(k.rest)} h <span class="mini">(${esc(k.grund)})</span>${(k.warnungen&&k.warnungen.length)?`<div class="mini" style="color:var(--fairness)">⚠ Hinweis: ${esc(k.warnungen.join('; '))}</div>`:''}</div>`;
+    const sauber=geeignet.filter(k=>!k.regelBruch), mitBruch=geeignet.filter(k=>k.regelBruch);
+    if(sauber.length){ h+=`<p class='gut'>✅ Passt ohne Regelverstoß für ${esc(nm(art))} am ${d}. — Zusage &amp; Freigabe stehen aus (Springer &amp; geringste Auslastung zuerst):</p>`; h+=sauber.map(karte).join(''); }
+    else h+=`<p style='color:var(--krank);font-weight:600'>⚠️ Niemand passt für ${esc(nm(art))} am ${d}. ohne Regelverstoß.</p>`;
+    if(mitBruch.length){ h+=`<p style='color:var(--fairness);font-weight:600;margin-top:10px'>⚠️ Nur mit Regelverstoß möglich (Dienste in Folge / Ruhetage / Max.-Anzahl) — nur im Notfall, Grund dokumentieren:</p>`; h+=mitBruch.map(k=>karte(k).replace('border-color:var(--ok)','border-color:var(--fairness)')).join(''); }
     h+=`<p class="mini">Die endgültige Entscheidung trifft die Leitung. Nicht aktivierte Plan-Prüfungen sind hier nicht berücksichtigt.</p>`;
   } else {
     h+=`<div class="unterdeckung"><b>⚠️ UNTERDECKUNG — keine geeignete Vertretung unter den hinterlegten Daten &amp; geprüften Bedingungen gefunden.</b>
