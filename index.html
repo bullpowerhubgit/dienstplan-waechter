@@ -221,7 +221,7 @@
       <button class="primary" onclick="autoVorschlag()">🤖 Plan automatisch vervollständigen</button>
       <button onclick="autoWuerfeln()">🎲 Anderer Vorschlag</button>
     </div>
-    <p class="hint" style="margin-top:2px">Füllt <b>leere Pflichtdienste</b> (Schichtarten mit „Mind." ≥ 1) automatisch mit passenden, verfügbaren Personen — respektiert <b>Wunschfrei, Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen), Ruhetage nach Nacht, Vollzeit-Verteilung</b> und <b>vorhandene Einträge</b> (überschreibt nichts). <b>Entwurf — bitte prüfen.</b></p>
+    <p class="hint" style="margin-top:2px">Füllt <b>leere Pflichtdienste</b> (Schichtarten mit „Mind." ≥ 1) automatisch mit passenden, verfügbaren Personen — hält <b>Urlaub, Qualifikation, Ruhezeit, Dienste/Tage/Nächte in Folge (auch persönliche Grenzen), Ruhetage nach Nacht, Vollzeit-Verteilung</b> und <b>vorhandene Einträge</b> ein (überschreibt nichts) und gibt zuerst denen Dienste, die <b>Minusstunden</b> haben. <b>Alle Pflichtdienste werden besetzt</b> — nur wenn es sonst nicht geht, wird so wenig <b>Wunschfrei</b> wie möglich gestrichen (wird angezeigt). <b>Entwurf — bitte prüfen.</b></p>
     <div class="palette" id="palette"></div>
     <p class="hint" id="palettestatus" style="margin:0 0 6px">🖌 <b>Schicht-Palette:</b> einen Dienst antippen → dann Zellen antippen, um schnell zu füllen (wie bei IHM). „✖ Pinsel aus" = normales Menü.</p>
     <div id="gridLueckenHinweis"></div>
@@ -263,7 +263,7 @@
     <div class="eins" id="einsErg" style="margin-top:12px"></div>
   </div>
 
-  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z11</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
+  <p class="mini" style="text-align:center;margin:24px 0">Dienstplan-Wächter · <b>Version 2026-11-10-Z13</b> · läuft offline, keine Cloud · entwickelt mit AIITEC</p>
 </main>
 
 <script>
@@ -759,11 +759,12 @@ function renderSchichtarten(){
     const [nm_,ku,st,da,na,qu,mb,fa]=tr.querySelectorAll("input");
     nm_.oninput=e=>{s.name=e.target.value; renderEinsArt(); renderLegend(); speichernLokal();};
     ku.oninput=e=>{s.kuerzel=e.target.value; renderGrid(); renderLegend(); speichernLokal();};
-    st.onchange=e=>{ if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(e.target.value)){ e.target.value=s.start; setStatus("⚠️ Ungültige Uhrzeit (Format HH:MM) — alter Wert behalten."); return; } s.start=e.target.value; speichernLokal(); };
-    da.onchange=e=>{ const v=valNum(e.target,0.5,s.dauer); if(v==null)return; s.dauer=v; speichernLokal();};
-    na.onchange=e=>{s.nacht=e.target.checked; speichernLokal();};
+    st.onchange=e=>{ if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(e.target.value)){ e.target.value=s.start; setStatus("⚠️ Ungültige Uhrzeit (Format HH:MM) — alter Wert behalten."); return; } s.start=e.target.value; renderGrid(); speichernLokal(); };
+    da.onchange=e=>{ const v=valNum(e.target,0.5,s.dauer); if(v==null)return; s.dauer=v; renderGrid(); renderPalette(); speichernLokal();};
+    na.onchange=e=>{s.nacht=e.target.checked; renderGrid(); speichernLokal();};
     qu.oninput=e=>{s.qual=e.target.value.trim(); speichernLokal();};
-    mb.onchange=e=>{ const v=valNum(e.target,0,s.minBesetzung); if(v==null)return; s.minBesetzung=v; speichernLokal();};
+    qu.onchange=()=>renderGrid();
+    mb.onchange=e=>{ const v=valNum(e.target,0,s.minBesetzung); if(v==null)return; s.minBesetzung=v; renderGrid(); speichernLokal();};
     fa.oninput=e=>{s.farbe=e.target.value; renderGrid(); renderLegend(); speichernLokal();};
     tb.appendChild(tr);
   });
@@ -1269,6 +1270,65 @@ function autoWuerfeln(){
   if(!alle.length){ autoFuellen(true); return; }
   bestaetige(`„Anderer Vorschlag“ verteilt alle ${alle.length} Pflichtdienste (${[...aktiv].map(id=>kuerzel(id)).join(', ')}) dieses Monats NEU. Frei, Krank, Urlaub, Wunschfrei und andere Dienste bleiben stehen. Vorher am besten „Sicherungsdatei speichern“. Neu verteilen?`, ()=>{ state.autoZellen=state.autoZellen||{}; neuRechnen(alle); });
 }
+/* Suche mit Zurückgehen (Branch & Bound): findet Pläne, die der Tag-für-Tag-Durchlauf übersieht.
+   Harte Regeln: Ruhezeit (echte Uhrzeiten), max. Dienste/Tag/Nacht in Folge (persönlich/Team, inkl. Vormonat), Urlaub, Einträge, Qualifikation, Minijob-Deckel.
+   Kosten: offener Dienst 1e6 ≫ Vollzeit-Höchstzahl 1e4 ≫ Ruhetag nach Nacht 1e2 ≫ Wunschfrei 1. */
+function sucheMitZurueckgehen(basisJSON, zeitMs, zufall){
+  const [j,m]=state.monat, D=tageImMonat(j,m), E=state.einstellungen, VOR=7;
+  const aktiv=state.schichtarten.filter(x=>(+x.minBesetzung||0)>0); const leute=state.team.filter(t=>t.name);
+  if(!aktiv.length||!leute.length) return null;
+  const basis=JSON.parse(basisJSON);
+  const isoK=k=>{ const dt=new Date(j,m-1,1+k); return iso(dt.getFullYear(),dt.getMonth()+1,dt.getDate()); };
+  const ISO=[]; for(let k=-VOR;k<D;k++) ISO.push(isoK(k));
+  const inf={}; for(const x of state.schichtarten){ const [h,mi]=hhmm(x.start); inf[x.id]={st:h+mi/60, du:+x.dauer||0, ar:x.arbeit!==false, na:!!x.nacht, tg:istTagdienst(x.id), q:x.qual?x.qual.toLowerCase():null}; }
+  const AR=v=>!!(v&&inf[v]&&inf[v].ar), NA=v=>!!(v&&inf[v]&&inf[v].ar&&inf[v].na), TG=v=>!!(v&&inf[v]&&inf[v].ar&&inf[v].tg);
+  const G=leute.map(t=>ISO.map(is=>(basis[t.id]||{})[is]||''));
+  const L=leute.map(t=>({F:E.folge.an?grenze(t,'folge',E.folge.maxFolge):999, TF:E.tagFolge.an?grenze(t,'tag',E.tagFolge.max):999, NF:E.nachtFolge.an?grenze(t,'nacht',E.nachtFolge.max):999,
+    mini:istMinijob(t)?(+t.soll_stunden||0):Infinity, vz:istVollzeit(t)&&E.verteilung.an, q:quals(t), url:new Set(t.urlaub||[]), wf:new Set(t.wunschfrei||[]), soll:+t.soll_stunden||0, ueb:+t.uebertrag||0}));
+  const H=leute.map((t,p)=>{ let h=0,tc=0,nc=0; for(let k=0;k<D;k++){ const v=G[p][k+VOR]; if(AR(v)){ h+=inf[v].du; if(TG(v)) tc++; if(NA(v)) nc++; } } return {h,tc,nc}; });
+  const ruhe=+state.min_ruhe_h||0, minFrei=E.ruhetage.an?(+E.ruhetage.minFrei||0):0;
+  const lauf=(p,k,f)=>{ let a=0; for(let x=k-1;x>=0&&f(G[p][x]);x--) a++; let b=0; for(let x=k+1;x<G[p].length&&f(G[p][x]);x++) b++; return a+b+1; };
+  const ruheVerstoesse=p=>{ if(!minFrei) return 0; const g=G[p]; let n=0; for(let x=0;x<g.length;x++){ if(!NA(g[x])) continue; if(x+1<g.length&&NA(g[x+1])) continue;
+      const ende=x+((inf[g[x]].st+inf[g[x]].du)>24?1:0); let w=-1; for(let y=x+1;y<g.length;y++) if(AR(g[y])){ w=y; break; } if(w>=0 && (w-ende-1)<minFrei) n++; } return n; };
+  const kosten=(p,k,sid)=>{ const x=k+VOR, g=G[p], I=inf[sid], l=L[p];
+    if(g[x]) return -1; if(l.url.has(ISO[x])) return -1; if(I.q && !l.q.includes(I.q)) return -1; if(H[p].h+I.du>l.mini) return -1;
+    const st=k*24+I.st, en=st+I.du;
+    for(let y=x-1;y>=Math.max(0,x-3);y--){ const v=g[y]; if(AR(v)){ const e2=(y-VOR)*24+inf[v].st+inf[v].du; if(st-e2<ruhe-1e-9) return -1; } }
+    for(let y=x+1;y<=Math.min(g.length-1,x+3);y++){ const v=g[y]; if(AR(v)){ const s2=(y-VOR)*24+inf[v].st; if(s2-en<ruhe-1e-9) return -1; } }
+    g[x]=sid; let ok=lauf(p,x,AR)<=l.F && (!I.tg || lauf(p,x,TG)<=l.TF) && (!I.na || lauf(p,x,NA)<=l.NF);
+    let c=0; if(ok && minFrei){ c+=100*ruheVerstoesse(p); } g[x]=''; if(!ok) return -1;
+    if(minFrei) c-=100*ruheVerstoesse(p);
+    if(l.vz && ((I.tg && H[p].tc>=E.verteilung.tagMax) || (I.na && H[p].nc>=E.verteilung.nachtMax))) c+=1e4;
+    if(l.wf.has(ISO[x])) c+=1;
+    return c; };
+  const slots=[]; for(let k=0;k<D;k++) for(const x of aktiv){ const min=+x.minBesetzung||0; let anz=0; for(let p=0;p<leute.length;p++){ if(G[p][k+VOR]===x.id && (!inf[x.id].q || L[p].q.includes(inf[x.id].q))) anz++; } for(let i=anz;i<min;i++) slots.push({k,sid:x.id}); }
+  if(!slots.length) return {plan:basisJSON, neu:[]};
+  const t0=Date.now(); let best=null, bestK=Infinity, knoten=0, zeitUm=false;
+  const wahl=[]; const offenS=new Array(slots.length).fill(true); let rest=slots.length;
+  const kandidaten=(i)=>{ const {k,sid}=slots[i]; const I=inf[sid]; const out=[];
+    for(let p=0;p<leute.length;p++){ const c=kosten(p,k,sid); if(c>=0){ const bed=L[p].soll-H[p].h-L[p].ueb; const fort=AR(G[p][k+VOR-1])||AR(G[p][k+VOR+1])?1:0; out.push({p,c,s:Math.floor(bed/12),fort,ty:I.na?H[p].nc:H[p].tc,r:Math.random()}); } }
+    out.sort((a,b)=> (a.c-b.c) || (b.s-a.s) || (b.fort-a.fort) || (a.ty-b.ty) || (zufall?(a.r-b.r):0)); return out; };
+  // Tiefensuche: immer den Dienst mit den WENIGSTEN Möglichkeiten zuerst (most-constrained-first); Schranke = sichere Lücken
+  const tief=(kost)=>{ if((++knoten & 63)===0 && Date.now()-t0>zeitMs) zeitUm=true; if(zeitUm) return;
+    if(rest===0){ if(kost<bestK){ bestK=kost; best=wahl.slice(); } return; }
+    let wi=-1, wk=null, null0=0;
+    for(let i=0;i<slots.length;i++){ if(!offenS[i]) continue; const kd=kandidaten(i); if(!kd.length) null0++;
+      if(wk===null || kd.length<wk.length || (kd.length===wk.length && slots[i].k<slots[wi].k)){ wi=i; wk=kd; } }
+    const minZusatz=(wk.length?wk[0].c:0);
+    if(kost + null0*1e6 + (wk.length?0:0) >= bestK) return;   // schon so viele sichere Lücken wie die beste Lösung
+    const {k,sid}=slots[wi]; const I=inf[sid], x=k+VOR; offenS[wi]=false; rest--;
+    for(const c of wk){ if(kost+c.c+ (null0)*1e6 >= bestK) continue;
+      G[c.p][x]=sid; H[c.p].h+=I.du; if(I.tg) H[c.p].tc++; if(I.na) H[c.p].nc++; wahl.push([c.p,k,sid]);
+      tief(kost+c.c);
+      wahl.pop(); G[c.p][x]=''; H[c.p].h-=I.du; if(I.tg) H[c.p].tc--; if(I.na) H[c.p].nc--; if(zeitUm) break; }
+    if(!zeitUm && (kost+1e6+(wk.length?null0:null0-1)*1e6) < bestK){ wahl.push(null); tief(kost+1e6); wahl.pop(); }   // Dienst offen lassen (letzte Wahl)
+    offenS[wi]=true; rest++; };
+  tief(0);
+  if(!best) return null;
+  const plan=JSON.parse(basisJSON), neu=[];
+  for(const w of best){ if(!w) continue; const [p,k,sid]=w; const id=leute[p].id, is=ISO[k+VOR]; plan[id]=plan[id]||{}; plan[id][is]=sid; neu.push(id+'|'+is); }
+  return {plan:JSON.stringify(plan), neu, kosten:bestK, vollstaendig:!zeitUm};
+}
 let __autoMeldung=null;
 function autoFuellenMeldung(){ if(__autoMeldung){ modalOeffnen(__autoMeldung); __autoMeldung=null; } }
 function autoFuellen(zufall, stumm){
@@ -1294,7 +1354,7 @@ function autoFuellen(zufall, stumm){
   const bewertung=()=>{ let q=0; for(const t of state.team){ if(!t.name || !(+t.soll_stunden>0)) continue; const b=(+t.soll_stunden)-istStundenMonat(t.id)-(+t.uebertrag||0); q+=b*b; } return Math.min(99999, Math.round(q/144)); };   // kleiner = Stunden gleichmäßiger ausgeglichen
   // Mehrfach-Suche: jede Variante = strenger Durchlauf + gestufte Lockerung; Bewertung: offene Dienste ≫ Lockerungen ≫ Verteilung.
   // Sucht weiter, bis alles regelkonform besetzt ist (max. ~3 s / 400 Varianten).
-  let best=null; const t0=Date.now(); let versuche=0; const BUDGET=2500;
+  let best=null; const t0=Date.now(); let versuche=0; const BUDGET=900;
   const variante=(rnd)=>{ state.plan=JSON.parse(basis);
     const r1=durchlauf(rnd, true); let n2=[], n3=[], nW=[];
     if(r1.offen>0){ nW=durchlauf(rnd,{mitWunschfrei:true}).neu; }                                   // 1. Wunschfrei streichen (so wenig wie möglich)
@@ -1312,6 +1372,16 @@ function autoFuellen(zufall, stumm){
     if(!best || v.sc<best.sc) best=v;
     if(best.offen===0 && best.g1===0 && best.g2===0 && !best.wf && versuche>=(zufall?3:5)) break;   // perfekt: alles besetzt ohne Lockerung
     if(best.offen===0 && versuche>=60) break;                                          // alles besetzt, Lockerung minimal gesucht
+  }
+  // Suche mit Zurückgehen; Ergebnis nur nehmen, wenn es besser ist UND „Plan prüfen“ keinen neuen Verstoß findet
+  const bewerte=(planJSON)=>{ state.plan=JSON.parse(planJSON); const off=pruefeLueckenListe().reduce((a,x)=>a+x.fehlt,0); const E=state.einstellungen;
+    const w1=E.ruhetage.an?pruefeRuhetageNachNacht(E.ruhetage.minFrei).length:0; const w2=E.verteilung.an?state.team.filter(t=>t.name&&istVollzeit(t)&&(tagdiensteMonat(t.id)>E.verteilung.tagMax||naechteMonat(t.id)>E.verteilung.nachtMax)).length:0;
+    const wfz=state.team.reduce((a,t)=>a+(t.wunschfrei||[]).filter(d=>imMonat(d)&&istArbeit((state.plan[t.id]||{})[d])).length,0); return {sc: off*1e13 + w2*1e11 + w1*1e9 + wfz*1e7 + bewertung(), offen:off, g1:w1, g2:w2, wf:wfz}; };
+  if(!(best.offen===0 && !best.g1 && !best.g2 && !best.wf)){
+    state.plan=JSON.parse(basis); const hartVorher=new Set(pruefeAlles().filter(v=>v.schwere==='GESETZ'||/in Folge/.test(v.text)).map(v=>v.mitarbeiter+'|'+v.text));
+    const su=sucheMitZurueckgehen(basis, Math.max(400, 2400-(Date.now()-t0)), zufall);
+    if(su){ const b=bewerte(su.plan); const neuHart=pruefeAlles().filter(v=>(v.schwere==='GESETZ'||/in Folge/.test(v.text)) && !hartVorher.has(v.mitarbeiter+'|'+v.text));
+      if(!neuHart.length && b.sc<best.sc) best=Object.assign(b,{plan:su.plan, neu:su.neu}); }
   }
   state.plan=JSON.parse(best.plan); const neuAlle=[...best.neu], gelockert1=best.g1, gelockert2=best.g2;
   // Nachbesserung: gestrichene Wunschfrei-Tage zurückgeben, wo jemand anderes den Dienst regelkonform übernehmen kann (auch per Ringtausch über 2 Personen)
@@ -1361,8 +1431,11 @@ function sichernDatei(){
 function ladenDatei(ev){
   const f=ev.target.files[0]; if(!f) return; const r=new FileReader();
   r.onload=()=>{ let kand;
-    try{ const roh=JSON.parse(r.result); const dup=doppelteIds(roh); if(dup) throw new Error('DUP:'+dup); kand=normalisieren(roh); bereinigePlan(kand); }
-    catch(e){ const m=String(e&&e.message||''); alert(m.startsWith('DUP:') ? ('Datei NICHT geladen — doppelte '+m.slice(4)+'. IDs müssen eindeutig sein (mehrdeutige Zuordnung ist nicht automatisch reparierbar). Bisheriger Plan bleibt unverändert.') : 'Datei ungültig — bisheriger Plan bleibt unverändert.'); return; }
+    try{ const roh=JSON.parse(r.result);
+      // nur echte Dienstplan-Wächter-Sicherungen annehmen – sonst würde ein leerer/fremder Inhalt den ganzen Plan löschen
+      if(!roh || typeof roh!=='object' || Array.isArray(roh) || !Array.isArray(roh.team) || !roh.team.some(t=>t && typeof t==='object' && String(t.name||'').trim()) || (roh.plan!=null && (typeof roh.plan!=='object' || Array.isArray(roh.plan)))) throw new Error('KEINE');
+      const dup=doppelteIds(roh); if(dup) throw new Error('DUP:'+dup); kand=normalisieren(roh); bereinigePlan(kand); }
+    catch(e){ const m=String(e&&e.message||''); alert(m==='KEINE' ? 'Datei NICHT geladen — das ist keine Dienstplan-Wächter-Sicherung (kein Team darin). Bitte die Datei „Dienstplan-Waechter_Sicherung_….json“ wählen. Bisheriger Plan bleibt unverändert.' : m.startsWith('DUP:') ? ('Datei NICHT geladen — doppelte '+m.slice(4)+'. IDs müssen eindeutig sein (mehrdeutige Zuordnung ist nicht automatisch reparierbar). Bisheriger Plan bleibt unverändert.') : 'Datei ungültig — bisheriger Plan bleibt unverändert.'); return; }
     state=kand; protokolliere('Sicherungsdatei geladen: '+f.name); speichernLokal(); aufbauen(); setStatus("✅ Sicherungsdatei geladen"); };
   r.readAsText(f); ev.target.value="";
 }
