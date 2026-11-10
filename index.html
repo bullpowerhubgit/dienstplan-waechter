@@ -984,7 +984,7 @@ document.addEventListener('click', ()=>{ const m=document.getElementById('zellMe
 /* Dienstplan drucken (ohne Popup — nutzt Druckbereich + @media print) */
 const MONATE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 /* ===== Lizenz-System (offline, pro Einrichtung) ===== */
-const KONTAKT = { name:"Rudolf Sarkany", firma:"AIITEC", mail:"aiitecbuuss@gmail.com", web:"https://www.aiitec.online/", tel:"+49 176 22890860", adr:"Uttinger Straße 3 · 86923 Finning" };
+const KONTAKT = { name:"Rudolf Sarkany", firma:"AIITEC", mail:"aiitecbuuss@gmail.com", web:"https://bullpowerhubgit.github.io/dienstplan-waechter/werbung.html", tel:"+49 176 22890860", adr:"Uttinger Straße 3 · 86923 Finning" };
 const LIZKEY = "dienstplan-waechter-lizenz";
 const LIZ_SALT = "AIITEC-DPW-2026";
 function lizBerechne(firma){
@@ -1013,7 +1013,7 @@ function renderLizStreifen(){
       +`<b>${esc(KONTAKT.name)} · ${esc(KONTAKT.firma)}</b> · `
       +`<a href="mailto:${KONTAKT.mail}">${KONTAKT.mail}</a> · `
       +`<a href="tel:+4917622890860">${KONTAKT.tel}</a> · `
-      +`<a href="${KONTAKT.web}" target="_blank" rel="noopener">aiitec.online</a></div>`
+      +`<a href="${KONTAKT.web}" target="_blank" rel="noopener">Über das Tool &amp; Kontakt</a></div>`
       +`<button class="primary" onclick="lizEingabe()">🔑 Lizenzschlüssel eingeben</button>`;
   }
 }
